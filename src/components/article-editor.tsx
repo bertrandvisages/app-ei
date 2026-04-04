@@ -14,14 +14,14 @@ import { toast } from "sonner";
 import type { Article, Profile } from "@/lib/types";
 
 const statusLabels: Record<string, string> = {
-  brouillon: "Brouillon",
+  draft: "Brouillon",
   valide: "Validé",
   publie: "Publié",
   rejete: "Rejeté",
 };
 
 const statusColors: Record<string, string> = {
-  brouillon: "bg-yellow-100 text-yellow-800",
+  draft: "bg-yellow-100 text-yellow-800",
   valide: "bg-blue-100 text-blue-800",
   publie: "bg-green-100 text-green-800",
   rejete: "bg-red-100 text-red-800",
@@ -45,11 +45,12 @@ export function ArticleEditor({
     const { error } = await supabase
       .from("articles")
       .update({
-        titre: article.titre,
-        description: article.description,
-        link: article.link,
-        url: article.url,
-        secteur: article.secteur,
+        title: article.title,
+        content: article.content,
+        source_url: article.source_url,
+        source_name: article.source_name,
+        categories: article.categories,
+        tags: article.tags,
       })
       .eq("id", article.id);
 
@@ -62,7 +63,7 @@ export function ArticleEditor({
   };
 
   const handleStatusChange = async (
-    newStatus: "valide" | "rejete" | "brouillon"
+    newStatus: "valide" | "rejete" | "draft"
   ) => {
     const updateData: Record<string, unknown> = { status: newStatus };
     if (newStatus === "valide") {
@@ -123,7 +124,7 @@ export function ArticleEditor({
           </span>
         </div>
         <div className="flex gap-2">
-          {article.status === "brouillon" && (
+          {article.status === "draft" && (
             <>
               <Button
                 variant="destructive"
@@ -144,7 +145,7 @@ export function ArticleEditor({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleStatusChange("brouillon")}
+              onClick={() => handleStatusChange("draft")}
             >
               Remettre en brouillon
             </Button>
@@ -167,36 +168,36 @@ export function ArticleEditor({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="titre">Titre</Label>
+            <Label htmlFor="title">Titre</Label>
             <Input
-              id="titre"
-              value={article.titre}
+              id="title"
+              value={article.title}
               onChange={(e) =>
-                setArticle({ ...article, titre: e.target.value })
+                setArticle({ ...article, title: e.target.value })
               }
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="content">Contenu</Label>
             <Textarea
-              id="description"
-              rows={6}
-              value={article.description || ""}
+              id="content"
+              rows={8}
+              value={article.content || ""}
               onChange={(e) =>
-                setArticle({ ...article, description: e.target.value })
+                setArticle({ ...article, content: e.target.value })
               }
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="secteur">Secteur</Label>
+              <Label htmlFor="source_name">Source</Label>
               <Input
-                id="secteur"
-                value={article.secteur || ""}
+                id="source_name"
+                value={article.source_name || ""}
                 onChange={(e) =>
-                  setArticle({ ...article, secteur: e.target.value })
+                  setArticle({ ...article, source_name: e.target.value })
                 }
               />
             </div>
@@ -217,25 +218,37 @@ export function ArticleEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="link">Lien source</Label>
+            <Label htmlFor="source_url">URL source</Label>
             <Input
-              id="link"
-              value={article.link || ""}
+              id="source_url"
+              value={article.source_url || ""}
               onChange={(e) =>
-                setArticle({ ...article, link: e.target.value })
+                setArticle({ ...article, source_url: e.target.value })
               }
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
-            <Input
-              id="url"
-              value={article.url || ""}
-              onChange={(e) =>
-                setArticle({ ...article, url: e.target.value })
-              }
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Catégories</Label>
+              <div className="flex gap-1 flex-wrap">
+                {article.categories?.map((cat) => (
+                  <Badge key={cat} variant="secondary">
+                    {cat}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <div className="flex gap-1 flex-wrap">
+                {article.tags?.map((tag) => (
+                  <Badge key={tag} variant="outline">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </div>
 
           <Separator />

@@ -1,4 +1,4 @@
-export type ArticleStatus = "brouillon" | "valide" | "publie" | "rejete";
+export type ArticleStatus = "draft" | "valide" | "publie" | "rejete";
 export type UserRole = "admin" | "editeur";
 
 export interface Profile {
@@ -12,11 +12,12 @@ export interface Profile {
 
 export interface Article {
   id: string;
-  titre: string;
-  description: string | null;
-  link: string | null;
-  url: string | null;
-  secteur: string | null;
+  title: string;
+  content: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  categories: string[];
+  tags: string[];
   date_source: string | null;
   status: ArticleStatus;
   wordpress_post_id: number | null;

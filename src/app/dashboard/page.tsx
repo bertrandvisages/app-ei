@@ -5,12 +5,13 @@ import type { Article } from "@/lib/types";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; secteur?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; category?: string; source?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
   const status = params.status || "";
-  const secteur = params.secteur || "";
+  const category = params.category || "";
+  const source = params.source || "";
   const page = parseInt(params.page || "1", 10);
   const pageSize = 20;
 
@@ -21,18 +22,28 @@ export default async function DashboardPage({
     .range((page - 1) * pageSize, page * pageSize - 1);
 
   if (status) query = query.eq("status", status);
-  if (secteur) query = query.eq("secteur", secteur);
+  if (category) query = query.contains("categories", [category]);
+  if (source) query = query.eq("source_name", source);
 
   const { data: articles, count } = await query;
 
-  // Get distinct secteurs for filter
-  const { data: secteursData } = await supabase
+  // Get distinct sources for filter
+  const { data: sourcesData } = await supabase
     .from("articles")
-    .select("secteur")
-    .not("secteur", "is", null);
+    .select("source_name")
+    .not("source_name", "is", null);
 
-  const secteurs = [
-    ...new Set(secteursData?.map((s) => s.secteur).filter(Boolean)),
+  const sources = [
+    ...new Set(sourcesData?.map((s) => s.source_name).filter(Boolean)),
+  ] as string[];
+
+  // Get distinct categories
+  const { data: catData } = await supabase
+    .from("articles")
+    .select("categories");
+
+  const categories = [
+    ...new Set(catData?.flatMap((c) => c.categories || []).filter(Boolean)),
   ] as string[];
 
   return (
@@ -49,8 +60,10 @@ export default async function DashboardPage({
         currentPage={page}
         pageSize={pageSize}
         currentStatus={status}
-        currentSecteur={secteur}
-        secteurs={secteurs}
+        currentCategory={category}
+        currentSource={source}
+        categories={categories}
+        sources={sources}
       />
     </div>
   );

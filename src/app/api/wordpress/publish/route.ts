@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: Request) {
   const supabase = await createClient();
 
-  // Verify authentication
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -14,7 +13,6 @@ export async function POST(request: Request) {
 
   const { articleId } = await request.json();
 
-  // Get article
   const { data: article, error: articleError } = await supabase
     .from("articles")
     .select("*")
@@ -32,7 +30,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Publish to WordPress
   const wpUrl = process.env.WORDPRESS_API_URL;
   const wpUser = process.env.WORDPRESS_USERNAME;
   const wpPass = process.env.WORDPRESS_APP_PASSWORD;
@@ -54,13 +51,9 @@ export async function POST(request: Request) {
         Authorization: `Basic ${credentials}`,
       },
       body: JSON.stringify({
-        title: article.titre,
-        content: article.description || "",
-        status: "draft", // Publié en brouillon sur WP pour review finale
-        meta: {
-          source_url: article.link || article.url || "",
-          secteur: article.secteur || "",
-        },
+        title: article.title,
+        content: article.content || "",
+        status: "draft",
       }),
     });
 
@@ -74,7 +67,6 @@ export async function POST(request: Request) {
 
     const wpPost = await wpResponse.json();
 
-    // Update article in Supabase
     await supabase
       .from("articles")
       .update({

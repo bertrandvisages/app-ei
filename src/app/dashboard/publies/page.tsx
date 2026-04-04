@@ -35,7 +35,7 @@ export default async function PubliesPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[400px]">Titre</TableHead>
-              <TableHead>Secteur</TableHead>
+              <TableHead>Source</TableHead>
               <TableHead>WordPress ID</TableHead>
               <TableHead>Publié le</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -51,11 +51,9 @@ export default async function PubliesPage() {
             ) : (
               (articles as Article[]).map((article) => (
                 <TableRow key={article.id}>
-                  <TableCell className="font-medium">{article.titre}</TableCell>
-                  <TableCell>
-                    {article.secteur && (
-                      <Badge variant="outline">{article.secteur}</Badge>
-                    )}
+                  <TableCell className="font-medium">{article.title}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {article.source_name || "-"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {article.wordpress_post_id || "-"}
