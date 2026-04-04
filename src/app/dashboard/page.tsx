@@ -51,7 +51,7 @@ export default async function DashboardPage({
       <div>
         <h1 className="text-2xl font-bold">Articles</h1>
         <p className="text-muted-foreground">
-          Gérez les actualités récupérées par le flux n8n
+          Gérez les actualités du site lenoncote.fr
         </p>
       </div>
       <ArticlesTable

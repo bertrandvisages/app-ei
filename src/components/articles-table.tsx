@@ -284,17 +284,7 @@ export function ArticlesTable({
                       </span>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      {article.status === "draft" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7"
-                          onClick={() => handleStatusChange(article.id, "valide")}
-                        >
-                          Valider
-                        </Button>
-                      )}
-                      {article.status === "valide" && (
+                      {(article.status === "draft" || article.status === "valide") && (
                         <Button
                           size="sm"
                           className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
@@ -376,7 +366,7 @@ export function ArticlesTable({
                           )}
                           <div className="flex items-center justify-between pt-2 border-t">
                             <div className="flex gap-2">
-                              {editData.status === "draft" && (
+                              {(editData.status === "draft" || editData.status === "valide") && (
                                 <>
                                   <Button
                                     size="sm"
@@ -388,10 +378,11 @@ export function ArticlesTable({
                                   </Button>
                                   <Button
                                     size="sm"
-                                    className="text-xs h-7"
-                                    onClick={() => handleStatusChange(editData.id, "valide")}
+                                    className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                                    onClick={() => handlePublish(editData.id)}
+                                    disabled={publishing === editData.id}
                                   >
-                                    Valider
+                                    {publishing === editData.id ? "Publication..." : "Publier sur WordPress"}
                                   </Button>
                                 </>
                               )}
@@ -414,16 +405,6 @@ export function ArticlesTable({
                                     Supprimer
                                   </Button>
                                 </>
-                              )}
-                              {editData.status === "valide" && (
-                                <Button
-                                  size="sm"
-                                  className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                                  onClick={() => handlePublish(editData.id)}
-                                  disabled={publishing === editData.id}
-                                >
-                                  {publishing === editData.id ? "Publication..." : "Publier sur WordPress"}
-                                </Button>
                               )}
                             </div>
                             <Button

@@ -23,9 +23,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Article non trouvé" }, { status: 404 });
   }
 
-  if (article.status !== "valide") {
+  if (article.status !== "valide" && article.status !== "draft") {
     return NextResponse.json(
-      { error: "L'article doit être validé avant publication" },
+      { error: "L'article ne peut pas être publié" },
       { status: 400 }
     );
   }
@@ -53,7 +53,9 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         title: article.title,
         content: article.content || "",
-        status: "draft",
+        status: "publish",
+        categories: [parseInt(process.env.WORDPRESS_CATEGORY_ID || "11", 10)],
+        tags_input: article.tags || [],
       }),
     });
 

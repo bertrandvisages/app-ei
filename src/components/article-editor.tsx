@@ -137,7 +137,7 @@ export function ArticleEditor({
                 size="sm"
                 onClick={() => handleStatusChange("valide")}
               >
-                Valider
+                Publier
               </Button>
             </>
           )}
