@@ -27,3 +27,23 @@ export interface Article {
   validated_by: string | null;
   published_by: string | null;
 }
+
+export interface Subscriber {
+  id: string;
+  wp_user_id: number;
+  login: string | null;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  user_type: string | null;
+  investisseur_type: string | null;
+  societe: string | null;
+  departement: string | null;
+  newsletter: boolean;
+  recontacter: boolean;
+  cgu: boolean;
+  email_verified: boolean;
+  registered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

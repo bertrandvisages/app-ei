@@ -9,6 +9,7 @@ import type { Profile } from "@/lib/types";
 const navigation = [
   { name: "Articles", href: "/dashboard", icon: NewspaperIcon },
   { name: "Publiés", href: "/dashboard/publies", icon: CheckCircleIcon },
+  { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
 ];
 
 const adminNavigation = [
