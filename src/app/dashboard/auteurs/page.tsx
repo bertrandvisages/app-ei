@@ -22,6 +22,9 @@ interface Author {
   description: string;
   avatar_url: string;
   link: string;
+  job_title: string;
+  company: string;
+  linkedin: string;
 }
 
 export default function AuteursPage() {
@@ -36,12 +39,12 @@ export default function AuteursPage() {
   const [editData, setEditData] = useState<Author | null>(null);
   const [saving, setSaving] = useState(false);
   const [newAuthor, setNewAuthor] = useState({
-    username: "",
-    email: "",
-    password: "",
     first_name: "",
     last_name: "",
     description: "",
+    job_title: "",
+    company: "",
+    linkedin: "",
   });
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function AuteursPage() {
 
       toast.success(`Auteur ${data.name} créé`);
       setShowForm(false);
-      setNewAuthor({ username: "", email: "", password: "", first_name: "", last_name: "", description: "" });
+      setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", linkedin: "" });
       const res2 = await fetch("/api/wordpress/authors");
       if (res2.ok) setAuthors(await res2.json());
     } catch (err) {
@@ -112,6 +115,9 @@ export default function AuteursPage() {
           last_name: editData.last_name,
           email: editData.email,
           description: editData.description,
+          job_title: editData.job_title,
+          company: editData.company,
+          linkedin: editData.linkedin,
         }),
       });
       const data = await res.json();
@@ -164,18 +170,16 @@ export default function AuteursPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name">Prénom</Label>
+                  <Label>Prénom</Label>
                   <Input
-                    id="first_name"
                     value={newAuthor.first_name}
                     onChange={(e) => setNewAuthor({ ...newAuthor, first_name: e.target.value })}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last_name">Nom</Label>
+                  <Label>Nom</Label>
                   <Input
-                    id="last_name"
                     value={newAuthor.last_name}
                     onChange={(e) => setNewAuthor({ ...newAuthor, last_name: e.target.value })}
                     required
@@ -184,41 +188,32 @@ export default function AuteursPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="username">Identifiant</Label>
+                  <Label>Fonction</Label>
                   <Input
-                    id="username"
-                    value={newAuthor.username}
-                    onChange={(e) => setNewAuthor({ ...newAuthor, username: e.target.value })}
-                    placeholder="prenom-nom"
-                    required
+                    value={newAuthor.job_title}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, job_title: e.target.value })}
+                    placeholder="Président, Directeur..."
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="author_email">Email</Label>
+                  <Label>Société</Label>
                   <Input
-                    id="author_email"
-                    type="email"
-                    value={newAuthor.email}
-                    onChange={(e) => setNewAuthor({ ...newAuthor, email: e.target.value })}
-                    required
+                    value={newAuthor.company}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, company: e.target.value })}
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="author_password">Mot de passe</Label>
+                <Label>LinkedIn</Label>
                 <Input
-                  id="author_password"
-                  type="password"
-                  value={newAuthor.password}
-                  onChange={(e) => setNewAuthor({ ...newAuthor, password: e.target.value })}
-                  minLength={8}
-                  required
+                  value={newAuthor.linkedin}
+                  onChange={(e) => setNewAuthor({ ...newAuthor, linkedin: e.target.value })}
+                  placeholder="https://www.linkedin.com/in/..."
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="author_description">Biographie</Label>
+                <Label>Biographie</Label>
                 <Textarea
-                  id="author_description"
                   rows={4}
                   value={newAuthor.description}
                   onChange={(e) => setNewAuthor({ ...newAuthor, description: e.target.value })}
@@ -257,7 +252,14 @@ export default function AuteursPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-base">{author.name}</h3>
+                    <div>
+                      <h3 className="font-semibold text-base">{author.name}</h3>
+                      {(author.job_title || author.company) && (
+                        <p className="text-xs text-muted-foreground">
+                          {[author.job_title, author.company].filter(Boolean).join(" - ")}
+                        </p>
+                      )}
+                    </div>
                     <svg
                       className={`h-4 w-4 text-muted-foreground transition-transform ${editingId === author.id ? "rotate-180" : ""}`}
                       fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
@@ -265,14 +267,26 @@ export default function AuteursPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                   </div>
-                  {author.email && (
-                    <p className="text-xs text-muted-foreground">{author.email}</p>
-                  )}
-                  {editingId !== author.id && author.description && (
-                    <p
-                      className="mt-2 text-xs text-muted-foreground line-clamp-2"
-                      dangerouslySetInnerHTML={{ __html: author.description }}
-                    />
+                  {editingId !== author.id && (
+                    <>
+                      {author.linkedin && (
+                        <a
+                          href={author.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[#E35205] hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          LinkedIn &rarr;
+                        </a>
+                      )}
+                      {author.description && (
+                        <p
+                          className="mt-2 text-xs text-muted-foreground line-clamp-2"
+                          dangerouslySetInnerHTML={{ __html: author.description }}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -296,12 +310,28 @@ export default function AuteursPage() {
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Fonction</Label>
+                      <Input
+                        value={editData.job_title}
+                        onChange={(e) => setEditData({ ...editData, job_title: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Société</Label>
+                      <Input
+                        value={editData.company}
+                        onChange={(e) => setEditData({ ...editData, company: e.target.value })}
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">Email</Label>
+                    <Label className="text-xs font-medium text-muted-foreground">LinkedIn</Label>
                     <Input
-                      type="email"
-                      value={editData.email}
-                      onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                      value={editData.linkedin}
+                      onChange={(e) => setEditData({ ...editData, linkedin: e.target.value })}
+                      placeholder="https://www.linkedin.com/in/..."
                     />
                   </div>
                   <div className="space-y-2">

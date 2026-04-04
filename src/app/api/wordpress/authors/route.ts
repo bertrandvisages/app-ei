@@ -42,6 +42,9 @@ export async function GET() {
       description: u.description || "",
       avatar_url: (u.avatar_urls as Record<string, string>)?.["96"] || "",
       link: u.link || "",
+      job_title: u.molongui_author_job || "",
+      company: u.molongui_author_company || "",
+      linkedin: u.molongui_author_linkedin || "",
     }));
 
     return NextResponse.json(authors);
@@ -73,13 +76,16 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
+  // Generate a random password since authors won't login
+  const password = Math.random().toString(36).slice(-12) + "Aa1!";
+
   try {
     const res = await wpFetch("/users", {
       method: "POST",
       body: JSON.stringify({
-        username: body.username,
-        email: body.email,
-        password: body.password,
+        username: body.username || `${body.first_name}-${body.last_name}`.toLowerCase().replace(/\s+/g, "-"),
+        email: body.email || `${body.first_name}.${body.last_name}@lenoncote.fr`.toLowerCase().replace(/\s+/g, ""),
+        password,
         first_name: body.first_name || "",
         last_name: body.last_name || "",
         description: body.description || "",
@@ -93,6 +99,21 @@ export async function POST(request: Request) {
     }
 
     const newUser = await res.json();
+
+    // Update Molongui meta fields
+    if (body.job_title || body.company || body.linkedin) {
+      await wpFetch(`/users/${newUser.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          meta: {
+            molongui_author_job: body.job_title || "",
+            molongui_author_company: body.company || "",
+            molongui_author_linkedin: body.linkedin || "",
+          },
+        }),
+      });
+    }
+
     return NextResponse.json({
       id: newUser.id,
       name: newUser.name,
@@ -121,14 +142,26 @@ export async function PUT(request: Request) {
   }
 
   try {
+    const updateData: Record<string, unknown> = {
+      first_name: body.first_name,
+      last_name: body.last_name,
+      description: body.description,
+    };
+
+    if (body.email) {
+      updateData.email = body.email;
+    }
+
+    // Molongui meta
+    updateData.meta = {
+      molongui_author_job: body.job_title || "",
+      molongui_author_company: body.company || "",
+      molongui_author_linkedin: body.linkedin || "",
+    };
+
     const res = await wpFetch(`/users/${body.id}`, {
-      method: "POST", // WP REST API uses POST for updates
-      body: JSON.stringify({
-        first_name: body.first_name,
-        last_name: body.last_name,
-        email: body.email,
-        description: body.description,
-      }),
+      method: "POST",
+      body: JSON.stringify(updateData),
     });
 
     if (!res.ok) {
