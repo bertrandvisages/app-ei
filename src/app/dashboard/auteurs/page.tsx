@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,82 @@ interface Author {
   email: string;
   description: string;
   avatar_url: string;
+  image_id: number | null;
   link: string;
   job_title: string;
   company: string;
+  company_website: string;
   linkedin: string;
+}
+
+function PhotoUpload({
+  currentUrl,
+  onUploaded,
+}: {
+  currentUrl: string;
+  onUploaded: (id: number, url: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(currentUrl);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/wordpress/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      onUploaded(data.id, data.url);
+      setPreview(data.url);
+      toast.success("Photo uploadée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur upload");
+      setPreview(currentUrl);
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      {preview ? (
+        <img src={preview} alt="Photo" className="w-20 h-20 rounded-full object-cover" />
+      ) : (
+        <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+          <span className="text-xs text-muted-foreground">Photo</span>
+        </div>
+      )}
+      <div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFile}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? "Upload..." : preview ? "Changer la photo" : "Ajouter une photo"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default function AuteursPage() {
@@ -38,12 +110,17 @@ export default function AuteursPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Author | null>(null);
   const [saving, setSaving] = useState(false);
+  const [newImageId, setNewImageId] = useState<number | null>(null);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [editImageId, setEditImageId] = useState<number | null>(null);
+  const [editImageUrl, setEditImageUrl] = useState("");
   const [newAuthor, setNewAuthor] = useState({
     first_name: "",
     last_name: "",
     description: "",
     job_title: "",
     company: "",
+    company_website: "",
     linkedin: "",
   });
 
@@ -60,10 +137,7 @@ export default function AuteursPage() {
       }
 
       const res = await fetch("/api/wordpress/authors");
-      if (res.ok) {
-        const data = await res.json();
-        setAuthors(data);
-      }
+      if (res.ok) setAuthors(await res.json());
       setLoading(false);
     }
     load();
@@ -76,14 +150,20 @@ export default function AuteursPage() {
       const res = await fetch("/api/wordpress/authors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newAuthor),
+        body: JSON.stringify({
+          ...newAuthor,
+          image_id: newImageId,
+          image_url: newImageUrl,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
       toast.success(`Auteur ${data.name} créé`);
       setShowForm(false);
-      setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", linkedin: "" });
+      setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", company_website: "", linkedin: "" });
+      setNewImageId(null);
+      setNewImageUrl("");
       const res2 = await fetch("/api/wordpress/authors");
       if (res2.ok) setAuthors(await res2.json());
     } catch (err) {
@@ -96,9 +176,13 @@ export default function AuteursPage() {
     if (editingId === author.id) {
       setEditingId(null);
       setEditData(null);
+      setEditImageId(null);
+      setEditImageUrl("");
     } else {
       setEditingId(author.id);
       setEditData({ ...author });
+      setEditImageId(null);
+      setEditImageUrl("");
     }
   };
 
@@ -117,18 +201,22 @@ export default function AuteursPage() {
           description: editData.description,
           job_title: editData.job_title,
           company: editData.company,
+          company_website: editData.company_website,
           linkedin: editData.linkedin,
+          image_id: editImageId || undefined,
+          image_url: editImageUrl || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Auteur mis à jour");
-      setAuthors(authors.map((a) =>
-        a.id === editData.id
-          ? { ...a, ...editData, name: `${editData.first_name} ${editData.last_name}`.trim() }
-          : a
-      ));
+      const updatedAuthor = {
+        ...editData,
+        name: `${editData.first_name} ${editData.last_name}`.trim(),
+        avatar_url: editImageUrl || editData.avatar_url,
+      };
+      setAuthors(authors.map((a) => a.id === editData.id ? updatedAuthor : a));
       setEditingId(null);
       setEditData(null);
     } catch (err) {
@@ -168,6 +256,10 @@ export default function AuteursPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
+              <PhotoUpload
+                currentUrl=""
+                onUploaded={(id, url) => { setNewImageId(id); setNewImageUrl(url); }}
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Prénom</Label>
@@ -203,13 +295,23 @@ export default function AuteursPage() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>LinkedIn</Label>
-                <Input
-                  value={newAuthor.linkedin}
-                  onChange={(e) => setNewAuthor({ ...newAuthor, linkedin: e.target.value })}
-                  placeholder="https://www.linkedin.com/in/..."
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Site web entreprise</Label>
+                  <Input
+                    value={newAuthor.company_website}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, company_website: e.target.value })}
+                    placeholder="https://www.exemple.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>LinkedIn</Label>
+                  <Input
+                    value={newAuthor.linkedin}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, linkedin: e.target.value })}
+                    placeholder="https://www.linkedin.com/in/..."
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Biographie</Label>
@@ -269,22 +371,20 @@ export default function AuteursPage() {
                   </div>
                   {editingId !== author.id && (
                     <>
-                      {author.linkedin && (
-                        <a
-                          href={author.linkedin}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-[#E35205] hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          LinkedIn &rarr;
-                        </a>
-                      )}
+                      <div className="flex gap-3 mt-1">
+                        {author.linkedin && (
+                          <a href={author.linkedin} target="_blank" rel="noopener noreferrer" className="text-xs text-[#E35205] hover:underline" onClick={(e) => e.stopPropagation()}>
+                            LinkedIn
+                          </a>
+                        )}
+                        {author.company_website && (
+                          <a href={author.company_website} target="_blank" rel="noopener noreferrer" className="text-xs text-[#E35205] hover:underline" onClick={(e) => e.stopPropagation()}>
+                            Site web
+                          </a>
+                        )}
+                      </div>
                       {author.description && (
-                        <p
-                          className="mt-2 text-xs text-muted-foreground line-clamp-2"
-                          dangerouslySetInnerHTML={{ __html: author.description }}
-                        />
+                        <p className="mt-2 text-xs text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: author.description }} />
                       )}
                     </>
                   )}
@@ -294,60 +394,46 @@ export default function AuteursPage() {
               {editingId === author.id && editData && (
                 <div className="mt-4 space-y-4">
                   <Separator />
+                  <PhotoUpload
+                    currentUrl={editData.avatar_url}
+                    onUploaded={(id, url) => { setEditImageId(id); setEditImageUrl(url); }}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-muted-foreground">Prénom</Label>
-                      <Input
-                        value={editData.first_name}
-                        onChange={(e) => setEditData({ ...editData, first_name: e.target.value })}
-                      />
+                      <Input value={editData.first_name} onChange={(e) => setEditData({ ...editData, first_name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-muted-foreground">Nom</Label>
-                      <Input
-                        value={editData.last_name}
-                        onChange={(e) => setEditData({ ...editData, last_name: e.target.value })}
-                      />
+                      <Input value={editData.last_name} onChange={(e) => setEditData({ ...editData, last_name: e.target.value })} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-muted-foreground">Fonction</Label>
-                      <Input
-                        value={editData.job_title}
-                        onChange={(e) => setEditData({ ...editData, job_title: e.target.value })}
-                      />
+                      <Input value={editData.job_title} onChange={(e) => setEditData({ ...editData, job_title: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-muted-foreground">Société</Label>
-                      <Input
-                        value={editData.company}
-                        onChange={(e) => setEditData({ ...editData, company: e.target.value })}
-                      />
+                      <Input value={editData.company} onChange={(e) => setEditData({ ...editData, company: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Site web entreprise</Label>
+                      <Input value={editData.company_website} onChange={(e) => setEditData({ ...editData, company_website: e.target.value })} placeholder="https://www.exemple.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">LinkedIn</Label>
+                      <Input value={editData.linkedin} onChange={(e) => setEditData({ ...editData, linkedin: e.target.value })} />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground">LinkedIn</Label>
-                    <Input
-                      value={editData.linkedin}
-                      onChange={(e) => setEditData({ ...editData, linkedin: e.target.value })}
-                      placeholder="https://www.linkedin.com/in/..."
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label className="text-xs font-medium text-muted-foreground">Biographie</Label>
-                    <Textarea
-                      rows={6}
-                      value={editData.description}
-                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                    />
+                    <Textarea rows={6} value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} />
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { setEditingId(null); setEditData(null); }}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditData(null); }}>
                       Annuler
                     </Button>
                     <Button size="sm" onClick={handleSave} disabled={saving}>

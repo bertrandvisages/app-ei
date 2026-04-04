@@ -41,9 +41,11 @@ export async function GET() {
       email: u.email || "",
       description: u.description || "",
       avatar_url: (u.avatar_urls as Record<string, string>)?.["96"] || "",
+      image_id: u.molongui_author_image_id || null,
       link: u.link || "",
       job_title: u.molongui_author_job || "",
       company: u.molongui_author_company || "",
+      company_website: u.molongui_author_company_link || "",
       linkedin: u.molongui_author_linkedin || "",
     }));
 
@@ -101,16 +103,20 @@ export async function POST(request: Request) {
     const newUser = await res.json();
 
     // Update Molongui meta fields
-    if (body.job_title || body.company || body.linkedin) {
+    const meta: Record<string, string | number> = {};
+    if (body.job_title) meta.molongui_author_job = body.job_title;
+    if (body.company) meta.molongui_author_company = body.company;
+    if (body.company_website) meta.molongui_author_company_link = body.company_website;
+    if (body.linkedin) meta.molongui_author_linkedin = body.linkedin;
+    if (body.image_id) {
+      meta.molongui_author_image_id = body.image_id;
+      if (body.image_url) meta.molongui_author_image_url = body.image_url;
+    }
+
+    if (Object.keys(meta).length > 0) {
       await wpFetch(`/users/${newUser.id}`, {
         method: "POST",
-        body: JSON.stringify({
-          meta: {
-            molongui_author_job: body.job_title || "",
-            molongui_author_company: body.company || "",
-            molongui_author_linkedin: body.linkedin || "",
-          },
-        }),
+        body: JSON.stringify({ meta }),
       });
     }
 
@@ -153,11 +159,17 @@ export async function PUT(request: Request) {
     }
 
     // Molongui meta
-    updateData.meta = {
+    const meta: Record<string, string | number> = {
       molongui_author_job: body.job_title || "",
       molongui_author_company: body.company || "",
+      molongui_author_company_link: body.company_website || "",
       molongui_author_linkedin: body.linkedin || "",
     };
+    if (body.image_id) {
+      meta.molongui_author_image_id = body.image_id;
+      if (body.image_url) meta.molongui_author_image_url = body.image_url;
+    }
+    updateData.meta = meta;
 
     const res = await wpFetch(`/users/${body.id}`, {
       method: "POST",
