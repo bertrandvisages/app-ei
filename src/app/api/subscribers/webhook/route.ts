@@ -1,58 +1,47 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createHmac } from "node:crypto";
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const expectedKey = `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`;
+  const body = await request.text();
+  const secret = process.env.WP_WEBHOOK_SECRET;
 
-  if (authHeader !== expectedKey) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  // Verify HMAC signature if secret is configured
+  if (secret) {
+    const signature = request.headers.get("x-webhook-signature");
+    const expected = createHmac("sha256", secret).update(body).digest("hex");
+    if (signature !== expected) {
+      return NextResponse.json({ error: "Signature invalide" }, { status: 401 });
+    }
   }
 
-  const body = await request.json();
+  const data = JSON.parse(body);
   const supabase = createAdminClient();
 
   const subscriberData = {
-    wp_user_id: body.user_id,
-    login: body.login || null,
-    email: body.email,
-    first_name: body.first_name || null,
-    last_name: body.last_name || null,
-    user_type: body.user_type || null,
-    investisseur_type: body.investisseur_type || null,
-    societe: body.societe || null,
-    departement: body.departement || null,
-    newsletter: body.newsletter ?? false,
-    recontacter: body.recontacter ?? false,
-    cgu: body.cgu ?? false,
-    email_verified: body.email_verified ?? false,
-    registered_at: body.registered_at || null,
+    wp_user_id: data.user_id,
+    login: data.login || null,
+    email: data.email,
+    first_name: data.first_name || null,
+    last_name: data.last_name || null,
+    user_type: data.user_type || null,
+    investisseur_type: data.investisseur_type || null,
+    societe: data.societe || null,
+    departement: data.departement || null,
+    newsletter: data.newsletter ?? false,
+    recontacter: data.recontacter ?? false,
+    cgu: data.cgu ?? false,
+    email_verified: data.email_verified ?? false,
+    registered_at: data.registered_at || null,
   };
 
-  if (body.event === "user_updated") {
-    const { error } = await supabase
-      .from("subscribers")
-      .update(subscriberData)
-      .eq("wp_user_id", body.user_id);
+  // Upsert: insert if new, update if existing (based on wp_user_id)
+  const { error } = await supabase
+    .from("subscribers")
+    .upsert(subscriberData, { onConflict: "wp_user_id" });
 
-    if (error) {
-      // If not found, insert instead
-      const { error: insertError } = await supabase
-        .from("subscribers")
-        .insert(subscriberData);
-
-      if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 400 });
-      }
-    }
-  } else {
-    const { error } = await supabase
-      .from("subscribers")
-      .upsert(subscriberData, { onConflict: "wp_user_id" });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   return NextResponse.json({ success: true });
