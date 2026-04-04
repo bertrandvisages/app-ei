@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -36,15 +37,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Le Non Coté</CardTitle>
+    <div className="min-h-screen flex items-center justify-center bg-[#101820]">
+      <Card className="w-full max-w-md border-0 shadow-2xl">
+        <CardHeader className="text-center pb-2 pt-8">
+          <Image
+            src="/logo.png"
+            alt="Le Non Coté"
+            width={200}
+            height={50}
+            className="mx-auto mb-4"
+          />
           <p className="text-muted-foreground text-sm">
             Dashboard de gestion des actualités
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4 pb-8">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -70,7 +77,11 @@ export default function LoginPage() {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full bg-[#E35205] hover:bg-[#c44604]"
+              disabled={loading}
+            >
               {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </form>

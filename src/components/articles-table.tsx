@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import {
   Table,
   TableBody,
@@ -12,6 +13,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import type { Article } from "@/lib/types";
 
 const statusColors: Record<string, string> = {
@@ -48,7 +53,7 @@ interface ArticlesTableProps {
 }
 
 export function ArticlesTable({
-  articles,
+  articles: initialArticles,
   totalCount,
   currentPage,
   pageSize,
@@ -60,7 +65,14 @@ export function ArticlesTable({
 }: ArticlesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createClient();
   const totalPages = Math.ceil(totalCount / pageSize);
+
+  const [articles, setArticles] = useState(initialArticles);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Article | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -79,6 +91,78 @@ export function ArticlesTable({
     router.push(`/dashboard?${params.toString()}`);
   };
 
+  const toggleExpand = (article: Article) => {
+    if (expandedId === article.id) {
+      setExpandedId(null);
+      setEditData(null);
+    } else {
+      setExpandedId(article.id);
+      setEditData({ ...article });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editData) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("articles")
+      .update({
+        title: editData.title,
+        content: editData.content,
+        source_url: editData.source_url,
+        source_name: editData.source_name,
+      })
+      .eq("id", editData.id);
+
+    if (error) {
+      toast.error("Erreur lors de la sauvegarde");
+    } else {
+      setArticles(articles.map((a) => (a.id === editData.id ? editData : a)));
+      toast.success("Sauvegardé");
+    }
+    setSaving(false);
+  };
+
+  const handleStatusChange = async (id: string, newStatus: "valide" | "rejete" | "draft") => {
+    const { error } = await supabase
+      .from("articles")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erreur");
+    } else {
+      setArticles(articles.map((a) => (a.id === id ? { ...a, status: newStatus } : a)));
+      if (editData?.id === id) setEditData({ ...editData, status: newStatus });
+      toast.success(`Article ${statusLabels[newStatus].toLowerCase()}`);
+    }
+  };
+
+  const handlePublish = async (id: string) => {
+    setPublishing(id);
+    try {
+      const res = await fetch("/api/wordpress/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setArticles(
+        articles.map((a) =>
+          a.id === id
+            ? { ...a, status: "publie" as const, wordpress_post_id: data.postId, wordpress_url: data.postUrl }
+            : a
+        )
+      );
+      toast.success("Publié sur WordPress");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur de publication");
+    }
+    setPublishing(null);
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -87,8 +171,8 @@ export function ArticlesTable({
           value={currentStatus || "all"}
           onValueChange={(v: string | null) => updateFilter("status", !v || v === "all" ? "" : v)}
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrer par statut" />
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
@@ -103,15 +187,13 @@ export function ArticlesTable({
           value={currentCategory || "all"}
           onValueChange={(v: string | null) => updateFilter("category", !v || v === "all" ? "" : v)}
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrer par catégorie" />
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Catégorie" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes les catégories</SelectItem>
+            <SelectItem value="all">Toutes catégories</SelectItem>
             {categories.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
+              <SelectItem key={c} value={c}>{c}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -120,78 +202,211 @@ export function ArticlesTable({
           value={currentSource || "all"}
           onValueChange={(v: string | null) => updateFilter("source", !v || v === "all" ? "" : v)}
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrer par source" />
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Source" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes les sources</SelectItem>
+            <SelectItem value="all">Toutes sources</SelectItem>
             {sources.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
+              <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       {/* Table */}
-      <div className="rounded-md border bg-card">
+      <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[400px]">Titre</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Catégories</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[40px]"></TableHead>
+              <TableHead>Titre</TableHead>
+              <TableHead className="w-[120px]">Source</TableHead>
+              <TableHead className="w-[100px]">Date</TableHead>
+              <TableHead className="w-[100px]">Statut</TableHead>
+              <TableHead className="w-[140px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {articles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                   Aucun article trouvé
                 </TableCell>
               </TableRow>
             ) : (
               articles.map((article) => (
-                <TableRow key={article.id}>
-                  <TableCell>
-                    <p className="font-medium line-clamp-1">{article.title}</p>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {article.source_name || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {article.categories?.map((cat) => (
-                        <Badge key={cat} variant="outline" className="text-xs">
-                          {cat}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {article.date_source
-                      ? new Date(article.date_source).toLocaleDateString("fr-FR")
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${statusColors[article.status]}`}
-                    >
-                      {statusLabels[article.status]}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Link href={`/dashboard/articles/${article.id}`}>
-                      <Button variant="ghost" size="sm">
-                        Voir
-                      </Button>
-                    </Link>
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow
+                    key={article.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => toggleExpand(article)}
+                  >
+                    <TableCell className="text-muted-foreground">
+                      <svg
+                        className={`h-4 w-4 transition-transform ${expandedId === article.id ? "rotate-90" : ""}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-medium text-sm line-clamp-1">{article.title}</p>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {article.source_name || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {article.date_source
+                        ? new Date(article.date_source).toLocaleDateString("fr-FR")
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${statusColors[article.status]}`}>
+                        {statusLabels[article.status]}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {article.status === "draft" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={() => handleStatusChange(article.id, "valide")}
+                        >
+                          Valider
+                        </Button>
+                      )}
+                      {article.status === "valide" && (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                          onClick={() => handlePublish(article.id)}
+                          disabled={publishing === article.id}
+                        >
+                          {publishing === article.id ? "..." : "Publier"}
+                        </Button>
+                      )}
+                      {article.status === "publie" && (
+                        <span className="text-xs text-green-600 font-medium">Publié</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Expanded row */}
+                  {expandedId === article.id && editData && (
+                    <TableRow key={`${article.id}-expanded`}>
+                      <TableCell colSpan={6} className="bg-muted/30 p-0">
+                        <div className="p-5 space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
+                            <Input
+                              value={editData.title}
+                              onChange={(e) => setEditData({ ...editData, title: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
+                            <Textarea
+                              rows={5}
+                              value={editData.content || ""}
+                              onChange={(e) => setEditData({ ...editData, content: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Source</Label>
+                              <Input
+                                value={editData.source_name || ""}
+                                onChange={(e) => setEditData({ ...editData, source_name: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">URL source</Label>
+                              <Input
+                                value={editData.source_url || ""}
+                                onChange={(e) => setEditData({ ...editData, source_url: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {editData.categories?.map((cat) => (
+                              <Badge key={cat} variant="secondary" className="text-xs">{cat}</Badge>
+                            ))}
+                            {editData.tags?.map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                            ))}
+                          </div>
+                          {editData.source_url && (
+                            <a
+                              href={editData.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-[#E35205] hover:underline"
+                            >
+                              Voir l&apos;article original &rarr;
+                            </a>
+                          )}
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div className="flex gap-2">
+                              {editData.status === "draft" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="text-xs h-7"
+                                    onClick={() => handleStatusChange(editData.id, "rejete")}
+                                  >
+                                    Rejeter
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    onClick={() => handleStatusChange(editData.id, "valide")}
+                                  >
+                                    Valider
+                                  </Button>
+                                </>
+                              )}
+                              {editData.status === "rejete" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={() => handleStatusChange(editData.id, "draft")}
+                                >
+                                  Remettre en brouillon
+                                </Button>
+                              )}
+                              {editData.status === "valide" && (
+                                <Button
+                                  size="sm"
+                                  className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                                  onClick={() => handlePublish(editData.id)}
+                                  disabled={publishing === editData.id}
+                                >
+                                  {publishing === editData.id ? "Publication..." : "Publier sur WordPress"}
+                                </Button>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={handleSave}
+                              disabled={saving}
+                            >
+                              {saving ? "..." : "Sauvegarder"}
+                            </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))
             )}
           </TableBody>
@@ -202,7 +417,7 @@ export function ArticlesTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {totalCount} article{totalCount > 1 ? "s" : ""} au total
+            {totalCount} article{totalCount > 1 ? "s" : ""}
           </p>
           <div className="flex gap-2">
             <Button
