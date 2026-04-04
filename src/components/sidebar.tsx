@@ -23,11 +23,10 @@ export function Sidebar({ profile }: { profile: Profile }) {
       <div className="flex h-16 items-center border-b border-white/10 px-5">
         <Link href="/dashboard">
           <Image
-            src="/logo.png"
+            src="/logo-blanc.png"
             alt="Le Non Coté"
-            width={160}
-            height={40}
-            className="brightness-0 invert"
+            width={200}
+            height={50}
           />
         </Link>
       </div>

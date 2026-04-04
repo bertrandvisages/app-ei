@@ -163,6 +163,20 @@ export function ArticlesTable({
     setPublishing(null);
   };
 
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("articles").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur lors de la suppression");
+    } else {
+      setArticles(articles.filter((a) => a.id !== id));
+      if (expandedId === id) {
+        setExpandedId(null);
+        setEditData(null);
+      }
+      toast.success("Article supprimé");
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -290,6 +304,16 @@ export function ArticlesTable({
                           {publishing === article.id ? "..." : "Publier"}
                         </Button>
                       )}
+                      {article.status === "rejete" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="text-xs h-7"
+                          onClick={() => handleDelete(article.id)}
+                        >
+                          Supprimer
+                        </Button>
+                      )}
                       {article.status === "publie" && (
                         <span className="text-xs text-green-600 font-medium">Publié</span>
                       )}
@@ -372,14 +396,24 @@ export function ArticlesTable({
                                 </>
                               )}
                               {editData.status === "rejete" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs h-7"
-                                  onClick={() => handleStatusChange(editData.id, "draft")}
-                                >
-                                  Remettre en brouillon
-                                </Button>
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7"
+                                    onClick={() => handleStatusChange(editData.id, "draft")}
+                                  >
+                                    Remettre en brouillon
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="text-xs h-7"
+                                    onClick={() => handleDelete(editData.id)}
+                                  >
+                                    Supprimer
+                                  </Button>
+                                </>
                               )}
                               {editData.status === "valide" && (
                                 <Button
