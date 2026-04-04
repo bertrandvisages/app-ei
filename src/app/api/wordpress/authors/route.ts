@@ -35,6 +35,8 @@ export async function GET() {
     const authors = users.map((u: Record<string, unknown>) => ({
       id: u.id,
       name: u.name,
+      first_name: u.first_name || "",
+      last_name: u.last_name || "",
       slug: u.slug,
       email: u.email || "",
       description: u.description || "",
@@ -96,6 +98,46 @@ export async function POST(request: Request) {
       name: newUser.name,
       slug: newUser.slug,
     });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Erreur" },
+      { status: 502 }
+    );
+  }
+}
+
+// PUT: update author
+export async function PUT(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  const body = await request.json();
+
+  if (!body.id) {
+    return NextResponse.json({ error: "ID requis" }, { status: 400 });
+  }
+
+  try {
+    const res = await wpFetch(`/users/${body.id}`, {
+      method: "POST", // WP REST API uses POST for updates
+      body: JSON.stringify({
+        first_name: body.first_name,
+        last_name: body.last_name,
+        email: body.email,
+        description: body.description,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json({ error: err }, { status: 502 });
+    }
+
+    const updated = await res.json();
+    return NextResponse.json({ success: true, name: updated.name });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur" },
