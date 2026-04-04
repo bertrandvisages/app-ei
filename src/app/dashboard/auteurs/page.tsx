@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichEditor } from "@/components/rich-editor";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -114,6 +115,7 @@ export default function AuteursPage() {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [editImageId, setEditImageId] = useState<number | null>(null);
   const [editImageUrl, setEditImageUrl] = useState("");
+  const [authorContribs, setAuthorContribs] = useState<Record<number, { id: number; title: string; status: string; date: string }[]>>({});
   const [newAuthor, setNewAuthor] = useState({
     first_name: "",
     last_name: "",
@@ -172,7 +174,7 @@ export default function AuteursPage() {
     setCreating(false);
   };
 
-  const toggleEdit = (author: Author) => {
+  const toggleEdit = async (author: Author) => {
     if (editingId === author.id) {
       setEditingId(null);
       setEditData(null);
@@ -183,6 +185,14 @@ export default function AuteursPage() {
       setEditData({ ...author });
       setEditImageId(null);
       setEditImageUrl("");
+      // Fetch contributions for this author
+      if (!authorContribs[author.id]) {
+        const res = await fetch(`/api/wordpress/contributions?author_id=${author.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAuthorContribs((prev) => ({ ...prev, [author.id]: data }));
+        }
+      }
     }
   };
 
@@ -434,6 +444,33 @@ export default function AuteursPage() {
                       onChange={(html) => setEditData({ ...editData, description: html })}
                     />
                   </div>
+                  {/* Contributions de l'auteur */}
+                  {authorContribs[author.id] && authorContribs[author.id].length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        Contributions ({authorContribs[author.id].length})
+                      </Label>
+                      <div className="rounded-md border divide-y">
+                        {authorContribs[author.id].map((c) => (
+                          <div key={c.id} className="flex items-center justify-between px-3 py-2">
+                            <div>
+                              <p className="text-sm font-medium">{c.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(c.date).toLocaleDateString("fr-FR")}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={c.status === "publish" ? "default" : "secondary"}
+                              className="text-[10px]"
+                            >
+                              {c.status === "publish" ? "Publié" : "Brouillon"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditData(null); }}>
                       Annuler
