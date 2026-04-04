@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         content: article.content || "",
         status: "publish",
         categories: [parseInt(process.env.WORDPRESS_CATEGORY_ID || "11", 10)],
-        tags_input: article.tags || [],
+        tags: [parseInt(process.env.WORDPRESS_TAG_ID || "20", 10)],
       }),
     });
 
