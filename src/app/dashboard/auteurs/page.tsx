@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichEditor } from "@/components/rich-editor";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -315,10 +315,9 @@ export default function AuteursPage() {
               </div>
               <div className="space-y-2">
                 <Label>Biographie</Label>
-                <Textarea
-                  rows={4}
-                  value={newAuthor.description}
-                  onChange={(e) => setNewAuthor({ ...newAuthor, description: e.target.value })}
+                <RichEditor
+                  content={newAuthor.description}
+                  onChange={(html) => setNewAuthor({ ...newAuthor, description: html })}
                 />
               </div>
               <div className="flex justify-end">
@@ -430,7 +429,10 @@ export default function AuteursPage() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs font-medium text-muted-foreground">Biographie</Label>
-                    <Textarea rows={6} value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} />
+                    <RichEditor
+                      content={editData.description}
+                      onChange={(html) => setEditData({ ...editData, description: html })}
+                    />
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditData(null); }}>
