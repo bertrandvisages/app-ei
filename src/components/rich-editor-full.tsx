@@ -3,6 +3,10 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import { useEffect } from "react";
 
 interface RichEditorFullProps {
@@ -23,6 +27,10 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
         openOnClick: false,
         HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -45,10 +53,16 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
     }
   };
 
+  const addTable = () => {
+    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  };
+
   const btnClass = (active: boolean) =>
     `px-2 py-1 rounded text-xs transition-colors ${
       active ? "bg-[#E35205] text-white" : "hover:bg-muted text-foreground"
     }`;
+
+  const btnDisabled = "px-2 py-1 rounded text-xs hover:bg-muted text-foreground";
 
   return (
     <div className="rounded-md border bg-background">
@@ -128,7 +142,70 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
         >
           Citation
         </button>
+        <div className="w-px bg-border mx-1" />
+        <button type="button" onClick={addTable} className={btnDisabled}>
+          Tableau
+        </button>
+        {editor.isActive("table") && (
+          <>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              className={btnDisabled}
+            >
+              + Col
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              className={btnDisabled}
+            >
+              + Ligne
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
+            >
+              - Col
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
+            >
+              - Ligne
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
+            >
+              Suppr. tableau
+            </button>
+          </>
+        )}
       </div>
+      <style>{`
+        .tiptap table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1em 0;
+        }
+        .tiptap th, .tiptap td {
+          border: 1px solid #d1d5db;
+          padding: 8px 12px;
+          text-align: left;
+          font-size: 13px;
+        }
+        .tiptap th {
+          background: #f3f4f6;
+          font-weight: 600;
+        }
+        .tiptap .selectedCell {
+          background: #fff3ed;
+        }
+      `}</style>
       <EditorContent
         editor={editor}
         className="prose prose-sm max-w-none px-4 py-3 min-h-[300px] focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:min-h-[280px] text-sm"
