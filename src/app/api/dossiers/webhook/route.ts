@@ -17,14 +17,6 @@ async function wpFetch(path: string, options?: RequestInit) {
 }
 
 export async function POST(request: Request) {
-  // Auth by service_role key
-  const authHeader = request.headers.get("authorization");
-  const expectedKey = `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`;
-
-  if (authHeader !== expectedKey) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
-
   let data;
   try {
     data = await request.json();
