@@ -29,8 +29,8 @@ export function Sidebar({ profile }: { profile: Profile }) {
           <Image
             src="/logo-blanc.png"
             alt="Le Non Coté"
-            width={200}
-            height={50}
+            width={240}
+            height={60}
           />
         </Link>
       </div>
