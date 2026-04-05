@@ -69,6 +69,7 @@ export async function GET(request: Request) {
       author: p.author,
       date: p.date,
       link: p.link,
+      slug: p.slug || "",
       image: mediaMap[(p.featured_media as number) || 0] || "",
       ...deserializeSureRank(((p.meta as Record<string, string>)?.surerank_settings_general) || ""),
     }));

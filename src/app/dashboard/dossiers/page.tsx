@@ -25,6 +25,7 @@ interface Author {
 interface Contribution {
   id: number;
   title: string;
+  slug: string;
   content: string;
   status: string;
   author: number;
@@ -53,6 +54,8 @@ export default function DossiersPage() {
   const [publishing, setPublishing] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
+  const [imageStyle, setImageStyle] = useState("");
 
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -174,6 +177,60 @@ export default function DossiersPage() {
     }
     setSaving(false);
   };
+
+  const handleGenerateImage = (contrib: Contribution) => {
+    if (!imageStyle) {
+      toast.error("Sélectionnez un style d'image");
+      return;
+    }
+
+    fetch("https://n8n.lenoncote.fr/webhook-test/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        post_id: contrib.id,
+        title: contrib.title,
+        slug: contrib.slug,
+        content: contrib.content,
+        author: getAuthorName(contrib.author),
+        style: imageStyle,
+      }),
+    }).catch(() => {});
+
+    setGeneratingIds((prev) => new Set(prev).add(contrib.id));
+    toast.success("Génération d'image lancée");
+  };
+
+  // Poll for image-ready notifications
+  useEffect(() => {
+    if (generatingIds.size === 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/contributions/notifications");
+        if (!res.ok) return;
+        const notifications = await res.json();
+
+        for (const notif of notifications) {
+          if (notif.post_id && notif.image_url) {
+            toast.success("Image générée !");
+            setContributions((prev) =>
+              prev.map((c) =>
+                c.id === notif.post_id ? { ...c, image: notif.image_url } : c
+              )
+            );
+            setGeneratingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(notif.post_id);
+              return next;
+            });
+          }
+        }
+      } catch {}
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [generatingIds]);
 
   const handlePublish = async (id: number) => {
     setPublishing(id);
@@ -389,6 +446,35 @@ export default function DossiersPage() {
                           {contrib.image && (
                             <img src={contrib.image.replace(/-\d+x\d+\./, '.')} alt="" className="rounded-lg w-1/2" />
                           )}
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Générer une image</p>
+                            <div className="flex items-end gap-3">
+                              <div className="flex-1 space-y-1">
+                                <select
+                                  value={imageStyle}
+                                  onChange={(e) => setImageStyle(e.target.value)}
+                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">Choisir un style...</option>
+                                  <option value="corporate-elegant">Corporate élégant</option>
+                                  <option value="analogie-sportive">Analogie sportive</option>
+                                  <option value="metaphore-nature">Métaphore nature</option>
+                                  <option value="industriel-terrain">Industriel / terrain</option>
+                                  <option value="abstrait">Abstrait</option>
+                                  <option value="architecture">Architecture</option>
+                                  <option value="equipe-humain">Équipe / humain</option>
+                                </select>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
+                                onClick={() => handleGenerateImage(contrib)}
+                                disabled={generatingIds.has(contrib.id) || !imageStyle}
+                              >
+                                {generatingIds.has(contrib.id) ? "En cours..." : "Générer"}
+                              </Button>
+                            </div>
+                          </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
                             <Input
