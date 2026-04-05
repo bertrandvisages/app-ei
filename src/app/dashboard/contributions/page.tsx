@@ -25,6 +25,7 @@ interface Author {
 interface Contribution {
   id: number;
   title: string;
+  slug: string;
   content: string;
   status: string;
   author: number;
@@ -194,6 +195,7 @@ export default function ContributionsPage() {
         body: JSON.stringify({
           post_id: contrib.id,
           title: contrib.title,
+          slug: contrib.slug,
           content: contrib.content,
           author: getAuthorName(contrib.author),
           style: imageStyle,

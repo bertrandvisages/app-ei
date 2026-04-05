@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { serializeSureRank, deserializeSureRank } from "@/lib/surerank";
+import { generateSlug } from "@/lib/slug";
 
 async function wpFetch(path: string, options?: RequestInit) {
   const wpUrl = process.env.WORDPRESS_API_URL;
@@ -69,6 +70,7 @@ export async function GET(request: Request) {
       author: p.author,
       date: p.date,
       link: p.link,
+      slug: p.slug || "",
       image: mediaMap[(p.featured_media as number) || 0] || "",
       ...deserializeSureRank(((p.meta as Record<string, string>)?.surerank_settings_general) || ""),
     }));
@@ -98,8 +100,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    const slug = generateSlug(body.title);
     const postData: Record<string, unknown> = {
       title: body.title,
+      slug,
       content: body.content || "",
       status: "draft",
       author: body.author_id,
