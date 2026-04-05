@@ -59,6 +59,8 @@ export default function ContributionsPage() {
   const [newAuthorId, setNewAuthorId] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
+  const [generating, setGenerating] = useState<number | null>(null);
+  const [imageStyle, setImageStyle] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -177,6 +179,33 @@ export default function ContributionsPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
     setSaving(false);
+  };
+
+  const handleGenerateImage = async (contrib: Contribution) => {
+    if (!imageStyle) {
+      toast.error("Sélectionnez un style d'image");
+      return;
+    }
+    setGenerating(contrib.id);
+    try {
+      const res = await fetch("https://n8n.lenoncote.fr/webhook-test/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          post_id: contrib.id,
+          title: contrib.title,
+          content: contrib.content,
+          author: getAuthorName(contrib.author),
+          style: imageStyle,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Erreur n8n");
+      toast.success("Demande envoyée à n8n");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    }
+    setGenerating(null);
   };
 
   const handlePublish = async (id: number) => {
@@ -394,6 +423,35 @@ export default function ContributionsPage() {
                           {contrib.image && (
                             <img src={contrib.image.replace(/-\d+x\d+\./, '.')} alt="" className="rounded-lg w-1/2" />
                           )}
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Générer une image</p>
+                            <div className="flex items-end gap-3">
+                              <div className="flex-1 space-y-1">
+                                <select
+                                  value={imageStyle}
+                                  onChange={(e) => setImageStyle(e.target.value)}
+                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">Choisir un style...</option>
+                                  <option value="corporate-elegant">Corporate élégant</option>
+                                  <option value="analogie-sportive">Analogie sportive</option>
+                                  <option value="metaphore-nature">Métaphore nature</option>
+                                  <option value="industriel-terrain">Industriel / terrain</option>
+                                  <option value="abstrait">Abstrait</option>
+                                  <option value="architecture">Architecture</option>
+                                  <option value="equipe-humain">Équipe / humain</option>
+                                </select>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
+                                onClick={() => handleGenerateImage(contrib)}
+                                disabled={generating === contrib.id || !imageStyle}
+                              >
+                                {generating === contrib.id ? "Envoi..." : "Générer"}
+                              </Button>
+                            </div>
+                          </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
                             <Input
