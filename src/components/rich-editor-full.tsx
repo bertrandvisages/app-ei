@@ -7,7 +7,27 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import { Node } from "@tiptap/pm/model";
 import { useEffect } from "react";
+import Heading from "@tiptap/extension-heading";
+
+// Clean HTML for Tiptap compatibility
+function cleanHtmlForTiptap(html: string): string {
+  // Remove <div> wrappers but keep content
+  let cleaned = html.replace(/<div[^>]*>/gi, "").replace(/<\/div>/gi, "");
+  // Remove id, class, data-* attributes from tags (keep href, target, rel, src)
+  cleaned = cleaned.replace(/<(\w+)\s+([^>]*)>/gi, (match, tag, attrs) => {
+    // Keep only safe attributes
+    const safeAttrs: string[] = [];
+    const attrRegex = /(href|target|rel|src|alt|border|cellpadding|cellspacing|colspan|rowspan)="[^"]*"/gi;
+    let attrMatch;
+    while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+      safeAttrs.push(attrMatch[0]);
+    }
+    return safeAttrs.length > 0 ? `<${tag} ${safeAttrs.join(" ")}>` : `<${tag}>`;
+  });
+  return cleaned;
+}
 
 interface RichEditorFullProps {
   content: string;
@@ -15,13 +35,30 @@ interface RichEditorFullProps {
 }
 
 export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
+  const cleanedContent = cleanHtmlForTiptap(content);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3, 4] },
+        heading: false,
         codeBlock: false,
         code: false,
         horizontalRule: false,
+      }),
+      Heading.configure({ levels: [2, 3, 4] }).extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            id: {
+              default: null,
+              parseHTML: (element: HTMLElement) => element.getAttribute("id"),
+              renderHTML: (attributes: Record<string, unknown>) => {
+                if (!attributes.id) return {};
+                return { id: attributes.id };
+              },
+            },
+          };
+        },
       }),
       Link.configure({
         openOnClick: false,
@@ -29,18 +66,49 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
       }),
       Table.configure({ resizable: false }),
       TableRow,
-      TableCell,
-      TableHeader,
+      TableCell.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            colspan: {
+              default: 1,
+              parseHTML: (element: HTMLElement) => parseInt(element.getAttribute("colspan") || "1", 10),
+            },
+            rowspan: {
+              default: 1,
+              parseHTML: (element: HTMLElement) => parseInt(element.getAttribute("rowspan") || "1", 10),
+            },
+          };
+        },
+      }),
+      TableHeader.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            colspan: {
+              default: 1,
+              parseHTML: (element: HTMLElement) => parseInt(element.getAttribute("colspan") || "1", 10),
+            },
+            rowspan: {
+              default: 1,
+              parseHTML: (element: HTMLElement) => parseInt(element.getAttribute("rowspan") || "1", 10),
+            },
+          };
+        },
+      }),
     ],
-    content,
+    content: cleanedContent,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (editor) {
+      const cleaned = cleanHtmlForTiptap(content);
+      if (cleaned !== editor.getHTML()) {
+        editor.commands.setContent(cleaned);
+      }
     }
   }, [content, editor]);
 
@@ -205,10 +273,45 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
         .tiptap .selectedCell {
           background: #fff3ed;
         }
+        .tiptap h2 {
+          font-size: 1.25rem;
+          font-weight: 700;
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+        }
+        .tiptap h3 {
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin-top: 1.25em;
+          margin-bottom: 0.4em;
+        }
+        .tiptap h4 {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-top: 1em;
+          margin-bottom: 0.3em;
+        }
+        .tiptap p {
+          margin-bottom: 0.75em;
+        }
+        .tiptap ul, .tiptap ol {
+          padding-left: 1.5em;
+          margin-bottom: 0.75em;
+        }
+        .tiptap blockquote {
+          border-left: 3px solid #E35205;
+          padding-left: 1em;
+          margin: 1em 0;
+          color: #6b7280;
+        }
+        .tiptap a {
+          color: #E35205;
+          text-decoration: underline;
+        }
       `}</style>
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-4 py-3 min-h-[300px] focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:min-h-[280px] text-sm"
+        className="max-w-none px-4 py-3 min-h-[300px] focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:min-h-[280px] text-sm"
       />
     </div>
   );
