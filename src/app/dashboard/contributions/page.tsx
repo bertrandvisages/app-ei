@@ -357,7 +357,7 @@ export default function ContributionsPage() {
                       <TableCell colSpan={6} className="bg-muted/30 p-0">
                         <div className="p-5 space-y-4">
                           {contrib.image && (
-                            <img src={contrib.image.replace(/-\d+x\d+\./, '.')} alt="" className="w-full rounded-lg object-cover max-h-[300px]" />
+                            <img src={contrib.image.replace(/-\d+x\d+\./, '.')} alt="" className="rounded-lg" />
                           )}
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
