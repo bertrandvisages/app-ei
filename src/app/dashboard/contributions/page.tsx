@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -32,6 +39,9 @@ interface Contribution {
   link: string;
 }
 
+type SortKey = "title" | "author" | "date" | "status";
+type SortDir = "asc" | "desc";
+
 export default function ContributionsPage() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
@@ -43,6 +53,8 @@ export default function ContributionsPage() {
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -64,6 +76,30 @@ export default function ContributionsPage() {
   const getAuthorName = (authorId: number) => {
     return authors.find((a) => a.id === authorId)?.name || "Inconnu";
   };
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sorted = useMemo(() => {
+    return [...contributions].sort((a, b) => {
+      let va: string;
+      let vb: string;
+      switch (sortKey) {
+        case "title": va = a.title; vb = b.title; break;
+        case "author": va = getAuthorName(a.author); vb = getAuthorName(b.author); break;
+        case "date": va = a.date; vb = b.date; break;
+        case "status": va = a.status; vb = b.status; break;
+      }
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contributions, sortKey, sortDir, authors]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +126,6 @@ export default function ContributionsPage() {
       setNewTitle("");
       setNewContent("");
       setNewAuthorId("");
-      // Reload
       const res2 = await fetch("/api/wordpress/contributions");
       if (res2.ok) setContributions(await res2.json());
     } catch (err) {
@@ -156,6 +191,15 @@ export default function ContributionsPage() {
     }
     setPublishing(null);
   };
+
+  const SortArrow = ({ col }: { col: SortKey }) => (
+    <svg
+      className={`inline-block ml-1 h-3 w-3 transition-transform ${sortKey === col ? "text-foreground" : "text-muted-foreground/40"} ${sortKey === col && sortDir === "desc" ? "rotate-180" : ""}`}
+      fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
+  );
 
   if (loading) {
     return (
@@ -231,93 +275,121 @@ export default function ContributionsPage() {
         </Card>
       )}
 
-      <div className="space-y-3">
-        {contributions.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Aucune contribution
-            </CardContent>
-          </Card>
-        ) : (
-          contributions.map((contrib) => (
-            <Card key={contrib.id}>
-              <CardContent className="pt-5">
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => toggleEdit(contrib)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm line-clamp-1">{contrib.title}</h3>
-                      <Badge
-                        variant={contrib.status === "publish" ? "default" : "secondary"}
-                        className="text-[10px] flex-shrink-0"
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40px]"></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("title")}>
+                Titre <SortArrow col="title" />
+              </TableHead>
+              <TableHead className="w-[160px] cursor-pointer select-none" onClick={() => toggleSort("author")}>
+                Auteur <SortArrow col="author" />
+              </TableHead>
+              <TableHead className="w-[110px] cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                Date <SortArrow col="date" />
+              </TableHead>
+              <TableHead className="w-[100px] cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                Publié <SortArrow col="status" />
+              </TableHead>
+              <TableHead className="w-[120px] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  Aucune contribution
+                </TableCell>
+              </TableRow>
+            ) : (
+              sorted.map((contrib) => (
+                <>
+                  <TableRow
+                    key={contrib.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => toggleEdit(contrib)}
+                  >
+                    <TableCell className="text-muted-foreground">
+                      <svg
+                        className={`h-4 w-4 transition-transform ${editingId === contrib.id ? "rotate-90" : ""}`}
+                        fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
                       >
-                        {contrib.status === "publish" ? "Publié" : "Brouillon"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {getAuthorName(contrib.author)} &middot; {new Date(contrib.date).toLocaleDateString("fr-FR")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    {contrib.status === "draft" && (
-                      <Button
-                        size="sm"
-                        className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                        onClick={() => handlePublish(contrib.id)}
-                        disabled={publishing === contrib.id}
-                      >
-                        {publishing === contrib.id ? "..." : "Publier"}
-                      </Button>
-                    )}
-                    {contrib.status === "publish" && contrib.link && (
-                      <a href={contrib.link} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" variant="outline" className="text-xs h-7">
-                          Voir
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-medium text-sm line-clamp-1">{contrib.title}</p>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {getAuthorName(contrib.author)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(contrib.date).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell>
+                      {contrib.status === "publish" ? (
+                        <span className="text-xs text-green-600 font-medium">Oui</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Non</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {contrib.status === "draft" && (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                          onClick={() => handlePublish(contrib.id)}
+                          disabled={publishing === contrib.id}
+                        >
+                          {publishing === contrib.id ? "..." : "Publier"}
                         </Button>
-                      </a>
-                    )}
-                    <svg
-                      className={`h-4 w-4 text-muted-foreground transition-transform cursor-pointer ${editingId === contrib.id ? "rotate-180" : ""}`}
-                      fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
-                      onClick={() => toggleEdit(contrib)}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </div>
-                </div>
+                      )}
+                      {contrib.status === "publish" && contrib.link && (
+                        <a href={contrib.link} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="text-xs h-7">
+                            Voir
+                          </Button>
+                        </a>
+                      )}
+                    </TableCell>
+                  </TableRow>
 
-                {editingId === contrib.id && (
-                  <div className="mt-4 space-y-4 border-t pt-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
-                      <Input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
-                      <RichEditorFull
-                        content={editContent}
-                        onChange={setEditContent}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
-                        Annuler
-                      </Button>
-                      <Button size="sm" onClick={handleSave} disabled={saving}>
-                        {saving ? "..." : "Sauvegarder"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))
-        )}
+                  {editingId === contrib.id && (
+                    <TableRow key={`${contrib.id}-edit`}>
+                      <TableCell colSpan={6} className="bg-muted/30 p-0">
+                        <div className="p-5 space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
+                            <Input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
+                            <RichEditorFull
+                              content={editContent}
+                              onChange={setEditContent}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
+                              Annuler
+                            </Button>
+                            <Button size="sm" onClick={handleSave} disabled={saving}>
+                              {saving ? "..." : "Sauvegarder"}
+                            </Button>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
