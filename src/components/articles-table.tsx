@@ -232,14 +232,13 @@ export function ArticlesTable({
               <TableHead>Titre</TableHead>
               <TableHead className="w-[120px]">Source</TableHead>
               <TableHead className="w-[100px]">Date</TableHead>
-              <TableHead className="w-[100px]">Statut</TableHead>
               <TableHead className="w-[140px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {articles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                   Aucun article trouvé
                 </TableCell>
               </TableRow>
@@ -273,11 +272,6 @@ export function ArticlesTable({
                         ? new Date(article.date_source).toLocaleDateString("fr-FR")
                         : "-"}
                     </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${statusColors[article.status]}`}>
-                        {statusLabels[article.status]}
-                      </span>
-                    </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
                         {(article.status === "draft" || article.status === "valide") && (
@@ -310,7 +304,7 @@ export function ArticlesTable({
                   {/* Expanded row */}
                   {expandedId === article.id && editData && (
                     <TableRow key={`${article.id}-expanded`}>
-                      <TableCell colSpan={6} className="bg-muted/30 p-0">
+                      <TableCell colSpan={5} className="bg-muted/30 p-0">
                         <div className="p-5 space-y-4">
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
