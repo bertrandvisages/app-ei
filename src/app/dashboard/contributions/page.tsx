@@ -467,9 +467,12 @@ export default function ContributionsPage() {
                                   <option value="analogie-sportive">Analogie sportive</option>
                                   <option value="metaphore-nature">Métaphore nature</option>
                                   <option value="industriel-terrain">Industriel / terrain</option>
-                                  <option value="abstrait">Abstrait</option>
-                                  <option value="architecture">Architecture</option>
+                                  <option value="abstrait-data">Abstrait / data</option>
+                                  <option value="architecture-infrastructure">Architecture / infrastructure</option>
                                   <option value="equipe-humain">Équipe / humain</option>
+                                  <option value="echiquier-strategie">Échiquier / stratégie</option>
+                                  <option value="exploration-aventure">Exploration / aventure</option>
+                                  <option value="coffre-fort-patrimoine">Coffre-fort / patrimoine</option>
                                 </select>
                               </div>
                               <Button
