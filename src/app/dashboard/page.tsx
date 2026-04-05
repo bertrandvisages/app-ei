@@ -49,7 +49,7 @@ export default async function DashboardPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Articles</h1>
+        <h1 className="text-2xl font-bold">Actualités</h1>
         <p className="text-muted-foreground">
           Gérez les actualités du site lenoncote.fr
         </p>

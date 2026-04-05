@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
 const navigation = [
-  { name: "Articles", href: "/dashboard", icon: NewspaperIcon },
+  { name: "Actualités", href: "/dashboard", icon: NewspaperIcon },
   { name: "Publiés", href: "/dashboard/publies", icon: CheckCircleIcon },
   { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
   { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
