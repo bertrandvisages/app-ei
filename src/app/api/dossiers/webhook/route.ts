@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serializeSureRank } from "@/lib/surerank";
 
 async function wpFetch(path: string, options?: RequestInit) {
   const wpUrl = process.env.WORDPRESS_API_URL;
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
 
     // Featured image
     if (item.id_media_wp) postData.featured_media = parseInt(item.id_media_wp, 10);
+
+    // SEO (SureRank)
+    if (item.seo_title || item.seo_description) {
+      postData.meta = {
+        surerank_settings_general: serializeSureRank(
+          item.seo_title || item.name || item.title || "",
+          item.seo_description || ""
+        ),
+      };
+    }
 
     try {
       const res = await wpFetch("/posts", {

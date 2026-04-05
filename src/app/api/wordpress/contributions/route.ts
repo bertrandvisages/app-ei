@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { serializeSureRank } from "@/lib/surerank";
 
 async function wpFetch(path: string, options?: RequestInit) {
   const wpUrl = process.env.WORDPRESS_API_URL;
@@ -96,16 +97,22 @@ export async function POST(request: Request) {
   }
 
   try {
+    const postData: Record<string, unknown> = {
+      title: body.title,
+      content: body.content || "",
+      status: "draft",
+      author: body.author_id,
+      categories: [categoryId],
+      tags: [parseInt(process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24", 10)],
+    };
+    if (body.seo_title || body.seo_description) {
+      postData.meta = {
+        surerank_settings_general: serializeSureRank(body.seo_title || body.title, body.seo_description || ""),
+      };
+    }
     const res = await wpFetch("/posts", {
       method: "POST",
-      body: JSON.stringify({
-        title: body.title,
-        content: body.content || "",
-        status: "draft",
-        author: body.author_id,
-        categories: [categoryId],
-        tags: [parseInt(process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24", 10)],
-      }),
+      body: JSON.stringify(postData),
     });
 
     if (!res.ok) {
@@ -146,6 +153,11 @@ export async function PUT(request: Request) {
     if (body.title !== undefined) updateData.title = body.title;
     if (body.content !== undefined) updateData.content = body.content;
     if (body.status !== undefined) updateData.status = body.status;
+    if (body.seo_title !== undefined || body.seo_description !== undefined) {
+      updateData.meta = {
+        surerank_settings_general: serializeSureRank(body.seo_title || "", body.seo_description || ""),
+      };
+    }
 
     const res = await wpFetch(`/posts/${body.id}`, {
       method: "POST",
