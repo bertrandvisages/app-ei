@@ -7,17 +7,12 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { Node } from "@tiptap/pm/model";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Heading from "@tiptap/extension-heading";
 
-// Clean HTML for Tiptap compatibility
 function cleanHtmlForTiptap(html: string): string {
-  // Remove <div> wrappers but keep content
   let cleaned = html.replace(/<div[^>]*>/gi, "").replace(/<\/div>/gi, "");
-  // Remove id, class, data-* attributes from tags (keep href, target, rel, src)
-  cleaned = cleaned.replace(/<(\w+)\s+([^>]*)>/gi, (match, tag, attrs) => {
-    // Keep only safe attributes
+  cleaned = cleaned.replace(/<(\w+)\s+([^>]*)>/gi, (_match, tag, attrs) => {
     const safeAttrs: string[] = [];
     const attrRegex = /(href|target|rel|src|alt|border|cellpadding|cellspacing|colspan|rowspan)="[^"]*"/gi;
     let attrMatch;
@@ -36,6 +31,7 @@ interface RichEditorFullProps {
 
 export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   const cleanedContent = cleanHtmlForTiptap(content);
+  const [hasFocus, setHasFocus] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -101,6 +97,8 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+    onFocus: () => setHasFocus(true),
+    onBlur: () => setHasFocus(false),
   });
 
   useEffect(() => {
@@ -117,72 +115,76 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   const addLink = () => {
     const url = window.prompt("URL du lien :");
     if (url) {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      editor.chain().extendMarkRange("link").setLink({ href: url }).run();
     }
   };
 
   const addTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    editor.chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
+
+  // Only show active state when editor has focus
+  const isActive = (name: string, attrs?: Record<string, unknown>) =>
+    hasFocus && editor.isActive(name, attrs);
 
   const btnClass = (active: boolean) =>
     `px-2 py-1 rounded text-xs transition-colors ${
       active ? "bg-[#E35205] text-white" : "hover:bg-muted text-foreground"
     }`;
 
-  const btnDisabled = "px-2 py-1 rounded text-xs hover:bg-muted text-foreground";
+  const btnBase = "px-2 py-1 rounded text-xs hover:bg-muted text-foreground";
 
   return (
     <div className="rounded-md border bg-background">
       <div className="flex gap-1 border-b px-2 py-1.5 flex-wrap">
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={btnClass(editor.isActive("heading", { level: 2 }))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleHeading({ level: 2 }).run(); }}
+          className={btnClass(isActive("heading", { level: 2 }))}
         >
           H2
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={btnClass(editor.isActive("heading", { level: 3 }))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleHeading({ level: 3 }).run(); }}
+          className={btnClass(isActive("heading", { level: 3 }))}
         >
           H3
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
-          className={btnClass(editor.isActive("heading", { level: 4 }))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleHeading({ level: 4 }).run(); }}
+          className={btnClass(isActive("heading", { level: 4 }))}
         >
           H4
         </button>
         <div className="w-px bg-border mx-1" />
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`${btnClass(editor.isActive("bold"))} font-bold`}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleBold().run(); }}
+          className={`${btnClass(isActive("bold"))} font-bold`}
         >
           G
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`${btnClass(editor.isActive("italic"))} italic`}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleItalic().run(); }}
+          className={`${btnClass(isActive("italic"))} italic`}
         >
           I
         </button>
         <div className="w-px bg-border mx-1" />
         <button
           type="button"
-          onClick={addLink}
-          className={btnClass(editor.isActive("link"))}
+          onMouseDown={(e) => { e.preventDefault(); addLink(); }}
+          className={btnClass(isActive("link"))}
         >
           Lien
         </button>
-        {editor.isActive("link") && (
+        {isActive("link") && (
           <button
             type="button"
-            onClick={() => editor.chain().focus().unsetLink().run()}
+            onMouseDown={(e) => { e.preventDefault(); editor.chain().unsetLink().run(); }}
             className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
           >
             Suppr. lien
@@ -191,62 +193,66 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
         <div className="w-px bg-border mx-1" />
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={btnClass(editor.isActive("bulletList"))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleBulletList().run(); }}
+          className={btnClass(isActive("bulletList"))}
         >
           Liste
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={btnClass(editor.isActive("orderedList"))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleOrderedList().run(); }}
+          className={btnClass(isActive("orderedList"))}
         >
           1. Liste
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={btnClass(editor.isActive("blockquote"))}
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleBlockquote().run(); }}
+          className={btnClass(isActive("blockquote"))}
         >
           Citation
         </button>
         <div className="w-px bg-border mx-1" />
-        <button type="button" onClick={addTable} className={btnDisabled}>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); addTable(); }}
+          className={btnBase}
+        >
           Tableau
         </button>
-        {editor.isActive("table") && (
+        {isActive("table") && (
           <>
             <button
               type="button"
-              onClick={() => editor.chain().focus().addColumnAfter().run()}
-              className={btnDisabled}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().addColumnAfter().run(); }}
+              className={btnBase}
             >
               + Col
             </button>
             <button
               type="button"
-              onClick={() => editor.chain().focus().addRowAfter().run()}
-              className={btnDisabled}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().addRowAfter().run(); }}
+              className={btnBase}
             >
               + Ligne
             </button>
             <button
               type="button"
-              onClick={() => editor.chain().focus().deleteColumn().run()}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().deleteColumn().run(); }}
               className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
             >
               - Col
             </button>
             <button
               type="button"
-              onClick={() => editor.chain().focus().deleteRow().run()}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().deleteRow().run(); }}
               className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
             >
               - Ligne
             </button>
             <button
               type="button"
-              onClick={() => editor.chain().focus().deleteTable().run()}
+              onMouseDown={(e) => { e.preventDefault(); editor.chain().deleteTable().run(); }}
               className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
             >
               Suppr. tableau
