@@ -13,13 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { RichEditorFull } from "@/components/rich-editor-full";
 import { toast } from "sonner";
 
@@ -37,6 +30,7 @@ interface Contribution {
   author: number;
   date: string;
   link: string;
+  image: string;
 }
 
 type SortKey = "title" | "author" | "date" | "status";
@@ -228,22 +222,19 @@ export default function DossiersPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Auteur</Label>
-                  <Select
+                  <Label>Auteur (optionnel)</Label>
+                  <select
                     value={newAuthorId}
-                    onValueChange={(v: string | null) => setNewAuthorId(v || "")}
+                    onChange={(e) => setNewAuthorId(e.target.value)}
+                    className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choisir un auteur" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {authors.map((a) => (
-                        <SelectItem key={a.id} value={a.id.toString()}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Choisir un auteur</option>
+                    {authors.map((a) => (
+                      <option key={a.id} value={a.id.toString()}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label>Titre</Label>
@@ -315,7 +306,12 @@ export default function DossiersPage() {
                       </svg>
                     </TableCell>
                     <TableCell>
-                      <p className="font-medium text-sm line-clamp-1">{contrib.title}</p>
+                      <div className="flex items-center gap-3">
+                        {contrib.image && (
+                          <img src={contrib.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                        )}
+                        <p className="font-medium text-sm line-clamp-1">{contrib.title}</p>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {getAuthorName(contrib.author)}

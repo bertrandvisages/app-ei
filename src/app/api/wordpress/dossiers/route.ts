@@ -42,6 +42,24 @@ export async function GET(request: Request) {
     }
     const posts = await res.json();
 
+    // Fetch featured images
+    const mediaIds = posts
+      .map((p: Record<string, unknown>) => p.featured_media)
+      .filter((id: unknown) => id && id !== 0);
+
+    let mediaMap: Record<number, string> = {};
+    if (mediaIds.length > 0) {
+      const uniqueIds = [...new Set(mediaIds as number[])];
+      const mediaRes = await wpFetch(`/media?include=${uniqueIds.join(",")}&per_page=100`);
+      if (mediaRes.ok) {
+        const mediaList = await mediaRes.json();
+        for (const m of mediaList) {
+          const thumb = m.media_details?.sizes?.thumbnail?.source_url || m.source_url;
+          mediaMap[m.id] = thumb;
+        }
+      }
+    }
+
     const dossiers = posts.map((p: Record<string, unknown>) => ({
       id: p.id,
       title: (p.title as Record<string, string>)?.raw || (p.title as Record<string, string>)?.rendered || "",
@@ -50,6 +68,7 @@ export async function GET(request: Request) {
       author: p.author,
       date: p.date,
       link: p.link,
+      image: mediaMap[(p.featured_media as number) || 0] || "",
     }));
 
     return NextResponse.json(dossiers);
