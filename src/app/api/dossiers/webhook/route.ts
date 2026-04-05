@@ -29,34 +29,49 @@ export async function POST(request: Request) {
   const results = [];
 
   for (const item of items) {
-    if (!item.title) continue;
+    const title = item.name || item.title;
+    if (!title) continue;
+
+    const postData: Record<string, unknown> = {
+      title,
+      content: item.html || item.content || "",
+      status: "draft",
+      categories: [categoryId],
+    };
+
+    // Slug
+    if (item.slug) postData.slug = item.slug;
+
+    // Author
+    if (item.id_auteur) postData.author = parseInt(item.id_auteur, 10);
+
+    // Featured image
+    if (item.id_media_wp) postData.featured_media = parseInt(item.id_media_wp, 10);
 
     try {
       const res = await wpFetch("/posts", {
         method: "POST",
-        body: JSON.stringify({
-          title: item.title,
-          content: item.content || "",
-          status: "draft",
-          categories: [categoryId],
-        }),
+        body: JSON.stringify(postData),
       });
 
       if (res.ok) {
         const post = await res.json();
-        results.push({ id: post.id, title: item.title, status: "created" });
+        results.push({ id: post.id, title, status: "created" });
       } else {
         const err = await res.text();
-        results.push({ title: item.title, status: "error", error: err });
+        results.push({ title, status: "error", error: err });
       }
     } catch (err) {
       results.push({
-        title: item.title,
+        title,
         status: "error",
         error: err instanceof Error ? err.message : "Erreur",
       });
     }
   }
 
-  return NextResponse.json({ inserted: results.filter((r) => r.status === "created").length, results });
+  return NextResponse.json({
+    inserted: results.filter((r) => r.status === "created").length,
+    results,
+  });
 }
