@@ -60,7 +60,7 @@ export default function ContributionsPage() {
   const [newAuthorId, setNewAuthorId] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
-  const [generating, setGenerating] = useState<number | null>(null);
+  const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
   const [imageStyle, setImageStyle] = useState("");
 
   useEffect(() => {
@@ -182,33 +182,61 @@ export default function ContributionsPage() {
     setSaving(false);
   };
 
-  const handleGenerateImage = async (contrib: Contribution) => {
+  const handleGenerateImage = (contrib: Contribution) => {
     if (!imageStyle) {
       toast.error("Sélectionnez un style d'image");
       return;
     }
-    setGenerating(contrib.id);
-    try {
-      const res = await fetch("https://n8n.lenoncote.fr/webhook-test/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          post_id: contrib.id,
-          title: contrib.title,
-          slug: contrib.slug,
-          content: contrib.content,
-          author: getAuthorName(contrib.author),
-          style: imageStyle,
-        }),
-      });
 
-      if (!res.ok) throw new Error("Erreur n8n");
-      toast.success("Demande envoyée à n8n");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
-    }
-    setGenerating(null);
+    // Fire and forget
+    fetch("https://n8n.lenoncote.fr/webhook-test/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        post_id: contrib.id,
+        title: contrib.title,
+        slug: contrib.slug,
+        content: contrib.content,
+        author: getAuthorName(contrib.author),
+        style: imageStyle,
+      }),
+    }).catch(() => {});
+
+    setGeneratingIds((prev) => new Set(prev).add(contrib.id));
+    toast.success("Génération d'image lancée");
   };
+
+  // Poll for image-ready notifications
+  useEffect(() => {
+    if (generatingIds.size === 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/contributions/notifications");
+        if (!res.ok) return;
+        const notifications = await res.json();
+
+        for (const notif of notifications) {
+          if (notif.post_id && notif.image_url) {
+            toast.success("Image générée !");
+            // Update the contribution image in the list
+            setContributions((prev) =>
+              prev.map((c) =>
+                c.id === notif.post_id ? { ...c, image: notif.image_url } : c
+              )
+            );
+            setGeneratingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(notif.post_id);
+              return next;
+            });
+          }
+        }
+      } catch {}
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [generatingIds]);
 
   const handlePublish = async (id: number) => {
     setPublishing(id);
@@ -448,9 +476,9 @@ export default function ContributionsPage() {
                                 size="sm"
                                 className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
                                 onClick={() => handleGenerateImage(contrib)}
-                                disabled={generating === contrib.id || !imageStyle}
+                                disabled={generatingIds.has(contrib.id) || !imageStyle}
                               >
-                                {generating === contrib.id ? "Envoi..." : "Générer"}
+                                {generatingIds.has(contrib.id) ? "En cours..." : "Générer"}
                               </Button>
                             </div>
                           </div>
