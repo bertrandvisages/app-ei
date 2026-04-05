@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { serializeSureRank } from "@/lib/surerank";
+import { serializeSureRank, deserializeSureRank } from "@/lib/surerank";
 
 async function wpFetch(path: string, options?: RequestInit) {
   const wpUrl = process.env.WORDPRESS_API_URL;
@@ -70,6 +70,7 @@ export async function GET(request: Request) {
       date: p.date,
       link: p.link,
       image: mediaMap[(p.featured_media as number) || 0] || "",
+      ...deserializeSureRank(((p.meta as Record<string, string>)?.surerank_settings_general) || ""),
     }));
 
     return NextResponse.json(contributions);

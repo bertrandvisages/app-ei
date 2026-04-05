@@ -31,6 +31,8 @@ interface Contribution {
   date: string;
   link: string;
   image: string;
+  seo_title: string;
+  seo_description: string;
 }
 
 type SortKey = "title" | "author" | "date" | "status";
@@ -139,8 +141,8 @@ export default function DossiersPage() {
       setEditingId(contrib.id);
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
-      setEditSeoTitle("");
-      setEditSeoDesc("");
+      setEditSeoTitle(contrib.seo_title || "");
+      setEditSeoDesc(contrib.seo_description || "");
     }
   };
 
