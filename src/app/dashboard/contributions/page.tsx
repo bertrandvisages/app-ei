@@ -45,6 +45,8 @@ export default function ContributionsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editSeoTitle, setEditSeoTitle] = useState("");
+  const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -53,6 +55,8 @@ export default function ContributionsPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newAuthorId, setNewAuthorId] = useState<string>("");
+  const [newSeoTitle, setNewSeoTitle] = useState("");
+  const [newSeoDesc, setNewSeoDesc] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -110,6 +114,8 @@ export default function ContributionsPage() {
           title: newTitle,
           content: newContent,
           author_id: parseInt(newAuthorId, 10),
+          seo_title: newSeoTitle || undefined,
+          seo_description: newSeoDesc || undefined,
         }),
       });
       const data = await res.json();
@@ -120,6 +126,8 @@ export default function ContributionsPage() {
       setNewTitle("");
       setNewContent("");
       setNewAuthorId("");
+      setNewSeoTitle("");
+      setNewSeoDesc("");
       const res2 = await fetch("/api/wordpress/contributions");
       if (res2.ok) setContributions(await res2.json());
     } catch (err) {
@@ -135,6 +143,8 @@ export default function ContributionsPage() {
       setEditingId(contrib.id);
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
+      setEditSeoTitle("");
+      setEditSeoDesc("");
     }
   };
 
@@ -149,6 +159,8 @@ export default function ContributionsPage() {
           id: editingId,
           title: editTitle,
           content: editContent,
+          seo_title: editSeoTitle || undefined,
+          seo_description: editSeoDesc || undefined,
         }),
       });
       const data = await res.json();
@@ -256,6 +268,27 @@ export default function ContributionsPage() {
                   content={newContent}
                   onChange={setNewContent}
                 />
+              </div>
+              <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                <div className="space-y-2">
+                  <Label className="text-xs">Titre SEO</Label>
+                  <Input
+                    value={newSeoTitle}
+                    onChange={(e) => setNewSeoTitle(e.target.value)}
+                    placeholder="Titre optimisé pour le référencement"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Meta description</Label>
+                  <Input
+                    value={newSeoDesc}
+                    onChange={(e) => setNewSeoDesc(e.target.value)}
+                    placeholder="Description de 155 caractères max"
+                    maxLength={160}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right">{newSeoDesc.length}/160</p>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button type="submit" disabled={creating}>
@@ -372,6 +405,27 @@ export default function ContributionsPage() {
                               content={editContent}
                               onChange={setEditContent}
                             />
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Titre SEO</Label>
+                              <Input
+                                value={editSeoTitle}
+                                onChange={(e) => setEditSeoTitle(e.target.value)}
+                                placeholder="Titre optimisé pour le référencement"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Meta description</Label>
+                              <Input
+                                value={editSeoDesc}
+                                onChange={(e) => setEditSeoDesc(e.target.value)}
+                                placeholder="Description de 155 caractères max"
+                                maxLength={160}
+                              />
+                              <p className="text-[10px] text-muted-foreground text-right">{editSeoDesc.length}/160</p>
+                            </div>
                           </div>
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>
