@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ArticlesTable } from "@/components/articles-table";
 import type { Article } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -18,6 +20,7 @@ export default async function DashboardPage({
   let query = supabase
     .from("articles")
     .select("*", { count: "exact" })
+    .neq("status", "publie")
     .order("created_at", { ascending: false })
     .range((page - 1) * pageSize, page * pageSize - 1);
 

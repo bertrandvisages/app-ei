@@ -82,15 +82,13 @@ export function ArticlesTable({
       params.delete(key);
     }
     params.delete("page");
-    router.push(`/dashboard?${params.toString()}`);
-    router.refresh();
+    window.location.href = `/dashboard?${params.toString()}`;
   };
 
   const goToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
-    router.push(`/dashboard?${params.toString()}`);
-    router.refresh();
+    window.location.href = `/dashboard?${params.toString()}`;
   };
 
   const toggleExpand = (article: Article) => {
@@ -151,12 +149,9 @@ export function ArticlesTable({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      setArticles(articles.filter((a) => a.id !== id));
-      if (expandedId === id) {
-        setExpandedId(null);
-        setEditData(null);
-      }
       toast.success("Publié sur WordPress");
+      // Refresh page to get updated server data
+      window.location.reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur de publication");
     }
