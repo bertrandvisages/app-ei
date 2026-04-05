@@ -66,7 +66,8 @@ export function ArticlesTable({
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const [localCount, setLocalCount] = useState(totalCount);
+  const totalPages = Math.ceil(localCount / pageSize);
 
   const [articles, setArticles] = useState(initialArticles);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -164,6 +165,7 @@ export function ArticlesTable({
       toast.error("Erreur lors de la suppression");
     } else {
       setArticles(articles.filter((a) => a.id !== id));
+      setLocalCount((c) => c - 1);
       if (expandedId === id) {
         setExpandedId(null);
         setEditData(null);
@@ -423,7 +425,7 @@ export function ArticlesTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {totalCount} article{totalCount > 1 ? "s" : ""}
+            {localCount} article{localCount > 1 ? "s" : ""}
           </p>
           <div className="flex gap-2">
             <Button
