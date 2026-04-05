@@ -282,7 +282,7 @@ export default function ContributionsPage() {
         <div>
           <h1 className="text-2xl font-bold">Contributions</h1>
           <p className="text-muted-foreground">
-            Articles Dossiers rédigés par les auteurs
+            Dossiers rédigés par les auteurs
           </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
