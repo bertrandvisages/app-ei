@@ -29,7 +29,8 @@ export async function GET(request: Request) {
   const authorId = searchParams.get("author_id");
   const categoryId = process.env.WORDPRESS_DOSSIERS_CATEGORY_ID || "1";
 
-  let url = `/posts?categories=${categoryId}&per_page=100&status=draft,publish&context=edit`;
+  const tagId = process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24";
+  let url = `/posts?categories=${categoryId}&tags=${tagId}&per_page=100&status=draft,publish&context=edit`;
   if (authorId) {
     url += `&author=${authorId}`;
   }
@@ -84,6 +85,7 @@ export async function POST(request: Request) {
         status: "draft",
         author: body.author_id,
         categories: [categoryId],
+        tags: [parseInt(process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24", 10)],
       }),
     });
 
