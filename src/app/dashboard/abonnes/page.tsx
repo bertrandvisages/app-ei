@@ -23,7 +23,6 @@ function getName(sub: Subscriber) {
 }
 
 export default function AbonnesPage() {
-  const supabase = createClient();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("registered_at");
@@ -31,6 +30,7 @@ export default function AbonnesPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
       const { data } = await supabase
         .from("subscribers")
         .select("*")
@@ -40,7 +40,7 @@ export default function AbonnesPage() {
       setLoading(false);
     }
     load();
-  }, [supabase]);
+  }, []);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {

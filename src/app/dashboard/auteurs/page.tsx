@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,8 +100,6 @@ function PhotoUpload({
 }
 
 export default function AuteursPage() {
-  const supabase = createClient();
-  const router = useRouter();
   const [authors, setAuthors] = useState<Author[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -128,6 +125,7 @@ export default function AuteursPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -143,7 +141,8 @@ export default function AuteursPage() {
       setLoading(false);
     }
     load();
-  }, [supabase, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

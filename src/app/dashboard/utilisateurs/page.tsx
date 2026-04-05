@@ -7,7 +7,6 @@ import { UsersManager } from "@/components/users-manager";
 import type { Profile } from "@/lib/types";
 
 export default function UtilisateursPage() {
-  const supabase = createClient();
   const router = useRouter();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [userId, setUserId] = useState<string>("");
@@ -15,6 +14,7 @@ export default function UtilisateursPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -46,7 +46,8 @@ export default function UtilisateursPage() {
     }
 
     load();
-  }, [supabase, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
