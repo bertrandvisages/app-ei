@@ -284,26 +284,28 @@ export function ArticlesTable({
                       </span>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      {(article.status === "draft" || article.status === "valide") && (
-                        <Button
-                          size="sm"
-                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                          onClick={() => handlePublish(article.id)}
-                          disabled={publishing === article.id}
-                        >
-                          {publishing === article.id ? "..." : "Publier"}
-                        </Button>
-                      )}
-                      {article.status === "rejete" && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="text-xs h-7"
-                          onClick={() => handleDelete(article.id)}
-                        >
-                          Supprimer
-                        </Button>
-                      )}
+                      <div className="flex gap-1 justify-end">
+                        {(article.status === "draft" || article.status === "valide") && (
+                          <Button
+                            size="sm"
+                            className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                            onClick={() => handlePublish(article.id)}
+                            disabled={publishing === article.id}
+                          >
+                            {publishing === article.id ? "..." : "Publier"}
+                          </Button>
+                        )}
+                        {article.status !== "publie" && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="text-xs h-7"
+                            onClick={() => handleDelete(article.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        )}
+                      </div>
                       {article.status === "publie" && (
                         <span className="text-xs text-green-600 font-medium">Publié</span>
                       )}
