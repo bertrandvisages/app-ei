@@ -527,7 +527,7 @@ export default function ContributionsPage() {
                                       currentSel === img.id ? "border-[#E35205]" : "border-transparent hover:border-muted-foreground/30"
                                     }`}
                                   >
-                                    <img src={img.url} alt="" className="w-1/4 max-w-[200px] block rounded" style={{ width: '200px' }} />
+                                    <img src={img.url} alt="" className="block rounded" style={{ width: '400px' }} />
                                     <input
                                       type="radio"
                                       name={`image-select-${contrib.id}`}
