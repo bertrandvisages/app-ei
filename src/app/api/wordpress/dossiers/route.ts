@@ -80,6 +80,7 @@ export async function GET(request: Request) {
       link: p.link,
       slug: p.slug || "",
       image: mediaMap[(p.featured_media as number) || 0] || "",
+      image_id: (p.featured_media as number) || null,
       seo_title: seoMap[p.id as number]?.seo_title || "",
       seo_description: seoMap[p.id as number]?.seo_description || "",
     }));
@@ -166,6 +167,7 @@ export async function PUT(request: Request) {
     if (body.title !== undefined) updateData.title = body.title;
     if (body.content !== undefined) updateData.content = body.content;
     if (body.status !== undefined) updateData.status = body.status;
+    if (body.featured_media !== undefined) updateData.featured_media = body.featured_media;
 
     if (Object.keys(updateData).length > 0) {
       const res = await wpFetch(`/posts/${body.id}`, {
