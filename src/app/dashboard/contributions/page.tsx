@@ -231,7 +231,7 @@ export default function ContributionsPage() {
     }
 
     // Fire and forget
-    fetch("https://n8n.lenoncote.fr/webhook-test/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
+    fetch("https://n8n.lenoncote.fr/webhook/4158ee4d-c5f6-439e-a0cf-e226e2c342a0", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
