@@ -66,6 +66,36 @@ export default function DossiersPage() {
   const [selectedImage, setSelectedImage] = useState<Record<number, number | null>>({});
   const [dirtyImages, setDirtyImages] = useState<Set<number>>(new Set());
 
+  // Restore session state on mount
+  useEffect(() => {
+    try {
+      const c = sessionStorage.getItem("dossiers_candidates");
+      const s = sessionStorage.getItem("dossiers_selected");
+      const d = sessionStorage.getItem("dossiers_dirty");
+      if (c) setCandidates(JSON.parse(c));
+      if (s) setSelectedImage(JSON.parse(s));
+      if (d) setDirtyImages(new Set(JSON.parse(d)));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dossiers_candidates", JSON.stringify(candidates));
+    } catch {}
+  }, [candidates]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dossiers_selected", JSON.stringify(selectedImage));
+    } catch {}
+  }, [selectedImage]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dossiers_dirty", JSON.stringify(Array.from(dirtyImages)));
+    } catch {}
+  }, [dirtyImages]);
+
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newAuthorId, setNewAuthorId] = useState<string>("");
@@ -204,6 +234,16 @@ export default function DossiersPage() {
       setDirtyImages((prev) => {
         const next = new Set(prev);
         next.delete(editingId);
+        return next;
+      });
+      setCandidates((prev) => {
+        const next = { ...prev };
+        delete next[editingId];
+        return next;
+      });
+      setSelectedImage((prev) => {
+        const next = { ...prev };
+        delete next[editingId];
         return next;
       });
       setEditingId(null);

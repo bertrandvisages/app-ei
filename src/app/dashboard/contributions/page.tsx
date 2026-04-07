@@ -75,6 +75,37 @@ export default function ContributionsPage() {
   // Track which contribs have unsaved image changes
   const [dirtyImages, setDirtyImages] = useState<Set<number>>(new Set());
 
+  // Restore session state on mount
+  useEffect(() => {
+    try {
+      const c = sessionStorage.getItem("contrib_candidates");
+      const s = sessionStorage.getItem("contrib_selected");
+      const d = sessionStorage.getItem("contrib_dirty");
+      if (c) setCandidates(JSON.parse(c));
+      if (s) setSelectedImage(JSON.parse(s));
+      if (d) setDirtyImages(new Set(JSON.parse(d)));
+    } catch {}
+  }, []);
+
+  // Persist on change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("contrib_candidates", JSON.stringify(candidates));
+    } catch {}
+  }, [candidates]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("contrib_selected", JSON.stringify(selectedImage));
+    } catch {}
+  }, [selectedImage]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("contrib_dirty", JSON.stringify(Array.from(dirtyImages)));
+    } catch {}
+  }, [dirtyImages]);
+
   useEffect(() => {
     async function load() {
       const [authorsRes, contribRes] = await Promise.all([
@@ -210,10 +241,20 @@ export default function ContributionsPage() {
           : c
       ));
 
-      // Clear dirty flag
+      // Clear dirty flag and remove candidates for this post
       setDirtyImages((prev) => {
         const next = new Set(prev);
         next.delete(editingId);
+        return next;
+      });
+      setCandidates((prev) => {
+        const next = { ...prev };
+        delete next[editingId];
+        return next;
+      });
+      setSelectedImage((prev) => {
+        const next = { ...prev };
+        delete next[editingId];
         return next;
       });
 
