@@ -1,22 +1,66 @@
-// Serialize SEO data to PHP format for SureRank
-export function serializeSureRank(title: string, description: string): string {
-  const t = title || "";
-  const d = description || "";
-  const tLen = new TextEncoder().encode(t).length;
-  const dLen = new TextEncoder().encode(d).length;
-  return `a:2:{s:10:"page_title";s:${tLen}:"${t}";s:16:"page_description";s:${dLen}:"${d}";}`;
+// SureRank uses its own dedicated REST endpoint, not the standard WP post meta API.
+
+interface SureRankSEO {
+  seo_title: string;
+  seo_description: string;
 }
 
-// Deserialize PHP serialized SureRank data
-export function deserializeSureRank(serialized: string): { seo_title: string; seo_description: string } {
+function getCredentials() {
+  const wpUser = process.env.WORDPRESS_USERNAME;
+  const wpPass = process.env.WORDPRESS_APP_PASSWORD;
+  return Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
+}
+
+function getSureRankBase() {
+  // WORDPRESS_API_URL is e.g. https://lenoncote.fr/wp-json/wp/v2
+  // SureRank endpoint is at https://lenoncote.fr/wp-json/surerank/v1
+  const wpUrl = process.env.WORDPRESS_API_URL || "";
+  return wpUrl.replace(/\/wp\/v2\/?$/, "/surerank/v1");
+}
+
+export async function readSureRank(postId: number, postType = "post"): Promise<SureRankSEO> {
   const result = { seo_title: "", seo_description: "" };
-  if (!serialized) return result;
+  try {
+    const res = await fetch(
+      `${getSureRankBase()}/post/settings?post_id=${postId}&post_type=${postType}`,
+      {
+        headers: { Authorization: `Basic ${getCredentials()}` },
+      }
+    );
+    if (!res.ok) return result;
+    const data = await res.json();
+    const meta = data?.metaData || data?.data?.metaData || data;
+    return {
+      seo_title: meta?.page_title || "",
+      seo_description: meta?.page_description || "",
+    };
+  } catch {
+    return result;
+  }
+}
 
-  const titleMatch = serialized.match(/"page_title";s:\d+:"([\s\S]*?)";s:/);
-  if (titleMatch) result.seo_title = titleMatch[1];
-
-  const descMatch = serialized.match(/"page_description";s:\d+:"([\s\S]*?)";}/);
-  if (descMatch) result.seo_description = descMatch[1];
-
-  return result;
+export async function writeSureRank(
+  postId: number,
+  seoTitle: string,
+  seoDescription: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${getSureRankBase()}/post/settings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${getCredentials()}`,
+      },
+      body: JSON.stringify({
+        post_id: postId,
+        metaData: {
+          page_title: seoTitle || "",
+          page_description: seoDescription || "",
+        },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

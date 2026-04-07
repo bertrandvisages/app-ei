@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { serializeSureRank, deserializeSureRank } from "@/lib/surerank";
+import { readSureRank, writeSureRank } from "@/lib/surerank";
 import { generateSlug } from "@/lib/slug";
 
 async function wpFetch(path: string, options?: RequestInit) {
@@ -19,7 +19,7 @@ async function wpFetch(path: string, options?: RequestInit) {
   });
 }
 
-// GET: list contributions (Dossiers category)
+// GET: list contributions (Dossiers category with contributions tag)
 export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,8 +30,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const authorId = searchParams.get("author_id");
   const categoryId = process.env.WORDPRESS_DOSSIERS_CATEGORY_ID || "1";
-
   const tagId = process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24";
+
   let url = `/posts?categories=${categoryId}&tags=${tagId}&per_page=100&status=draft,publish&context=edit`;
   if (authorId) {
     url += `&author=${authorId}`;
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       .map((p: Record<string, unknown>) => p.featured_media)
       .filter((id: unknown) => id && id !== 0);
 
-    let mediaMap: Record<number, string> = {};
+    const mediaMap: Record<number, string> = {};
     if (mediaIds.length > 0) {
       const uniqueIds = [...new Set(mediaIds as number[])];
       const mediaRes = await wpFetch(`/media?include=${uniqueIds.join(",")}&per_page=100`);
@@ -62,6 +62,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Fetch SEO data from SureRank for each post
+    const seoMap: Record<number, { seo_title: string; seo_description: string }> = {};
+    await Promise.all(
+      posts.map(async (p: Record<string, unknown>) => {
+        const seo = await readSureRank(p.id as number);
+        seoMap[p.id as number] = seo;
+      })
+    );
+
     const contributions = posts.map((p: Record<string, unknown>) => ({
       id: p.id,
       title: (p.title as Record<string, string>)?.raw || (p.title as Record<string, string>)?.rendered || "",
@@ -72,7 +81,8 @@ export async function GET(request: Request) {
       link: p.link,
       slug: p.slug || "",
       image: mediaMap[(p.featured_media as number) || 0] || "",
-      ...deserializeSureRank(((p.meta as Record<string, string>)?.surerank_settings_general) || ""),
+      seo_title: seoMap[p.id as number]?.seo_title || "",
+      seo_description: seoMap[p.id as number]?.seo_description || "",
     }));
 
     return NextResponse.json(contributions);
@@ -110,11 +120,7 @@ export async function POST(request: Request) {
       categories: [categoryId],
       tags: [parseInt(process.env.WORDPRESS_CONTRIBUTIONS_TAG_ID || "24", 10)],
     };
-    if (body.seo_title || body.seo_description) {
-      postData.meta = {
-        surerank_settings_general: serializeSureRank(body.seo_title || body.title, body.seo_description || ""),
-      };
-    }
+
     const res = await wpFetch("/posts", {
       method: "POST",
       body: JSON.stringify(postData),
@@ -126,6 +132,12 @@ export async function POST(request: Request) {
     }
 
     const post = await res.json();
+
+    // Write SEO data via SureRank dedicated endpoint
+    if (body.seo_title || body.seo_description) {
+      await writeSureRank(post.id, body.seo_title || body.title, body.seo_description || "");
+    }
+
     return NextResponse.json({
       id: post.id,
       title: post.title?.raw || post.title?.rendered || "",
@@ -158,28 +170,25 @@ export async function PUT(request: Request) {
     if (body.title !== undefined) updateData.title = body.title;
     if (body.content !== undefined) updateData.content = body.content;
     if (body.status !== undefined) updateData.status = body.status;
+
+    if (Object.keys(updateData).length > 0) {
+      const res = await wpFetch(`/posts/${body.id}`, {
+        method: "POST",
+        body: JSON.stringify(updateData),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        return NextResponse.json({ error: err }, { status: 502 });
+      }
+    }
+
+    // Write SEO data via SureRank dedicated endpoint
     if (body.seo_title !== undefined || body.seo_description !== undefined) {
-      updateData.meta = {
-        surerank_settings_general: serializeSureRank(body.seo_title || "", body.seo_description || ""),
-      };
+      await writeSureRank(body.id, body.seo_title || "", body.seo_description || "");
     }
 
-    const res = await wpFetch(`/posts/${body.id}`, {
-      method: "POST",
-      body: JSON.stringify(updateData),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: err }, { status: 502 });
-    }
-
-    const post = await res.json();
-    return NextResponse.json({
-      id: post.id,
-      status: post.status,
-      link: post.link,
-    });
+    return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur" },
