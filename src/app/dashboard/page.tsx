@@ -15,7 +15,7 @@ export default async function DashboardPage({
   const category = params.category || "";
   const source = params.source || "";
   const page = parseInt(params.page || "1", 10);
-  const pageSize = 20;
+  const pageSize = 100;
 
   let query = supabase
     .from("articles")
