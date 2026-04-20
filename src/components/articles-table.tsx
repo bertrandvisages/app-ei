@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -74,6 +74,42 @@ export function ArticlesTable({
   const [editData, setEditData] = useState<Article | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<"title" | "date" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const toggleSort = (key: "title" | "date") => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedArticles = useMemo(() => {
+    if (!sortKey) return articles;
+    return [...articles].sort((a, b) => {
+      let va: string;
+      let vb: string;
+      if (sortKey === "title") {
+        va = a.title || "";
+        vb = b.title || "";
+      } else {
+        va = a.date_source || "";
+        vb = b.date_source || "";
+      }
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }, [articles, sortKey, sortDir]);
+
+  const SortArrow = ({ col }: { col: "title" | "date" }) => (
+    <svg
+      className={`inline-block ml-1 h-3 w-3 transition-transform ${sortKey === col ? "text-foreground" : "text-muted-foreground/40"} ${sortKey === col && sortDir === "desc" ? "rotate-180" : ""}`}
+      fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
+  );
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -231,21 +267,25 @@ export function ArticlesTable({
           <TableHeader>
             <TableRow>
               <TableHead className="w-[40px]"></TableHead>
-              <TableHead>Titre</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("title")}>
+                Titre <SortArrow col="title" />
+              </TableHead>
               <TableHead className="w-[120px]">Source</TableHead>
-              <TableHead className="w-[100px]">Date</TableHead>
+              <TableHead className="w-[100px] cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                Date <SortArrow col="date" />
+              </TableHead>
               <TableHead className="w-[140px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {articles.length === 0 ? (
+            {sortedArticles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                   Aucun article trouvé
                 </TableCell>
               </TableRow>
             ) : (
-              articles.map((article) => (
+              sortedArticles.map((article) => (
                 <>
                   <TableRow
                     key={article.id}
