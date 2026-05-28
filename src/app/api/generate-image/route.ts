@@ -97,6 +97,11 @@ export async function POST(request: Request) {
   const aspectRatio = body.aspectRatio || "16:9";
 
   // ─── Appel Gemini ──────────────────────────────────────
+  // Note : la config responseFormat.image.aspectRatio cause un 400 dans la version
+  // actuelle de l'API gemini-3-pro-image-preview (enum non documenté).
+  // On l'enlève et on injecte la contrainte d'aspect dans le prompt lui-même.
+  const promptWithAspect = `${prompt}\n\nFormat de sortie : image en aspect ratio ${aspectRatio}, paysage.`;
+
   let geminiRes: Response;
   try {
     geminiRes = await fetch(
@@ -108,12 +113,9 @@ export async function POST(request: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: promptWithAspect }] }],
           generationConfig: {
             responseModalities: ["TEXT", "IMAGE"],
-            responseFormat: {
-              image: { aspectRatio, imageSize: "2K" },
-            },
           },
         }),
       }
