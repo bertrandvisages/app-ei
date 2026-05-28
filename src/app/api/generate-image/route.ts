@@ -42,8 +42,14 @@ function buildPrompt({
   style: string;
 }): string {
   const scene = STYLE_TEMPLATES[style] || STYLE_TEMPLATES["corporate-elegant"];
+  // Strip HTML + normalise les espaces pour ne pas gonfler le prompt avec du bruit de markup.
+  // Pas de troncature : Gemini 3 Pro Image accepte un contexte large, et un article entier
+  // donne de meilleures covers qu'un extrait des 400 premiers caractères.
   const contentHint = content
-    ? `Article topic context (for inspiration, not literal text): ${content.replace(/<[^>]+>/g, "").slice(0, 400)}`
+    ? `Article topic context (for inspiration, not literal text): ${content
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()}`
     : "";
   return `Editorial cover image for a French private equity / finance publication titled "${title}". ${scene} ${contentHint} ${PHOTO_REALISM_PREFIX}`.trim();
 }
