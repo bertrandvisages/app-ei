@@ -267,6 +267,8 @@ export default function DossiersPage() {
               ...c,
               title: editTitle,
               content: editContent,
+              // Si l'item était déjà publié, l'édition le marque comme modifié
+              is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
             }
           : c
@@ -373,8 +375,9 @@ export default function DossiersPage() {
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Publié sur le site");
+      // Republish remet le flag is_modified à false (synchro updated_at/published_at)
       setContributions(contributions.map((c) =>
-        c.id === id ? { ...c, status: "publish" } : c
+        c.id === id ? { ...c, status: "publish", is_modified: false } : c
       ));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");

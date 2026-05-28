@@ -303,6 +303,7 @@ export default function ContributionsPage() {
               content: editContent,
               citation: editCitation,
               author: editAuthorId,
+              is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
             }
           : c
@@ -417,7 +418,7 @@ export default function ContributionsPage() {
 
       toast.success("Publié sur le site");
       setContributions(contributions.map((c) =>
-        c.id === id ? { ...c, status: "publish" } : c
+        c.id === id ? { ...c, status: "publish", is_modified: false } : c
       ));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
