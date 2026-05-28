@@ -6,10 +6,18 @@ ALTER TABLE public.articles DROP COLUMN IF EXISTS link;
 ALTER TABLE public.articles DROP COLUMN IF EXISTS url;
 ALTER TABLE public.articles DROP COLUMN IF EXISTS secteur;
 
--- Renommer les colonnes existantes
-ALTER TABLE public.articles RENAME COLUMN titre TO title;
-ALTER TABLE public.articles RENAME COLUMN description TO content;
-ALTER TABLE public.articles RENAME COLUMN date_source TO date_source;
+-- Renommer les colonnes existantes (idempotent : ne fait rien si déjà renommé)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='articles' AND column_name='titre') THEN
+    ALTER TABLE public.articles RENAME COLUMN titre TO title;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='articles' AND column_name='description') THEN
+    ALTER TABLE public.articles RENAME COLUMN description TO content;
+  END IF;
+END $$;
 
 -- Ajouter les nouvelles colonnes
 ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS source_url TEXT;

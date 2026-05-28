@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import type { Profile } from "@/lib/types";
 
 interface Author {
-  id: number;
+  id: string;
   name: string;
   first_name: string;
   last_name: string;
@@ -105,14 +105,14 @@ export default function AuteursPage() {
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Author | null>(null);
   const [saving, setSaving] = useState(false);
   const [newImageId, setNewImageId] = useState<number | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [editImageId, setEditImageId] = useState<number | null>(null);
   const [editImageUrl, setEditImageUrl] = useState("");
-  const [authorContribs, setAuthorContribs] = useState<Record<number, { id: number; title: string; status: string; date: string }[]>>({});
+  const [authorContribs, setAuthorContribs] = useState<Record<string, { id: string; title: string; status: string; date: string }[]>>({});
   const [newAuthor, setNewAuthor] = useState({
     first_name: "",
     last_name: "",

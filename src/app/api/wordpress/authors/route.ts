@@ -1,67 +1,82 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-async function wpFetch(path: string, options?: RequestInit) {
-  const wpUrl = process.env.WORDPRESS_API_URL;
-  const wpUser = process.env.WORDPRESS_USERNAME;
-  const wpPass = process.env.WORDPRESS_APP_PASSWORD;
-  const credentials = Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
-
-  return fetch(`${wpUrl}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${credentials}`,
-      ...options?.headers,
-    },
-  });
+// Slugifie un texte (sans accents, lowercase, tirets)
+function slugify(input: string): string {
+  return input
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-// GET: list authors
+type AuthorRow = {
+  id: string;
+  wp_id: number | null;
+  slug: string;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  bio: string | null;
+  job_title: string | null;
+  company: string | null;
+  company_website: string | null;
+  linkedin: string | null;
+  image_url: string | null;
+};
+
+// Map Supabase row → shape attendue par le dashboard (rétrocompatible WP API)
+function toApiShape(a: AuthorRow) {
+  return {
+    id: a.id,
+    name: a.name,
+    first_name: a.first_name ?? "",
+    last_name: a.last_name ?? "",
+    slug: a.slug,
+    email: "",
+    description: a.bio ?? "",
+    avatar_url: a.image_url ?? "",
+    image_id: null,
+    link: "",
+    job_title: a.job_title ?? "",
+    company: a.company ?? "",
+    company_website: a.company_website ?? "",
+    linkedin: a.linkedin ?? "",
+  };
+}
+
+// GET : liste des auteurs
 export async function GET() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  try {
-    const res = await wpFetch("/users?roles=author&per_page=100&context=edit");
-    if (!res.ok) {
-      return NextResponse.json({ error: "Erreur WordPress" }, { status: 502 });
-    }
-    const users = await res.json();
+  const { data, error } = await supabase
+    .from("authors")
+    .select(
+      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
+    )
+    .order("name", { ascending: true });
 
-    const authors = users.map((u: Record<string, unknown>) => ({
-      id: u.id,
-      name: u.name,
-      first_name: u.first_name || "",
-      last_name: u.last_name || "",
-      slug: u.slug,
-      email: u.email || "",
-      description: u.description || "",
-      avatar_url: (u.avatar_urls as Record<string, string>)?.["96"] || "",
-      image_id: u.molongui_author_image_id || null,
-      link: u.link || "",
-      job_title: u.molongui_author_job || "",
-      company: u.molongui_author_company || "",
-      company_website: u.molongui_author_company_link || "",
-      linkedin: u.molongui_author_linkedin || "",
-    }));
-
-    return NextResponse.json(authors);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur" },
-      { status: 502 }
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  return NextResponse.json((data as AuthorRow[]).map(toApiShape));
 }
 
-// POST: create author
+// POST : création d'un auteur (admin uniquement)
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
@@ -78,115 +93,120 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  // Generate a random password since authors won't login
-  const password = Math.random().toString(36).slice(-12) + "Aa1!";
+  const firstName = String(body.first_name ?? "").trim();
+  const lastName = String(body.last_name ?? "").trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-  try {
-    const res = await wpFetch("/users", {
-      method: "POST",
-      body: JSON.stringify({
-        username: body.username || `${body.first_name}-${body.last_name}`.toLowerCase().replace(/\s+/g, "-"),
-        email: body.email || `${body.first_name}.${body.last_name}@lenoncote.fr`.toLowerCase().replace(/\s+/g, ""),
-        password,
-        first_name: body.first_name || "",
-        last_name: body.last_name || "",
-        description: body.description || "",
-        roles: ["author"],
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: err }, { status: 502 });
-    }
-
-    const newUser = await res.json();
-
-    // Update Molongui meta fields
-    const meta: Record<string, string | number> = {};
-    if (body.job_title) meta.molongui_author_job = body.job_title;
-    if (body.company) meta.molongui_author_company = body.company;
-    if (body.company_website) meta.molongui_author_company_link = body.company_website;
-    if (body.linkedin) meta.molongui_author_linkedin = body.linkedin;
-    if (body.image_id) {
-      meta.molongui_author_image_id = body.image_id;
-      if (body.image_url) meta.molongui_author_image_url = body.image_url;
-    }
-
-    if (Object.keys(meta).length > 0) {
-      await wpFetch(`/users/${newUser.id}`, {
-        method: "POST",
-        body: JSON.stringify({ meta }),
-      });
-    }
-
-    return NextResponse.json({
-      id: newUser.id,
-      name: newUser.name,
-      slug: newUser.slug,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur" },
-      { status: 502 }
-    );
+  if (!fullName) {
+    return NextResponse.json({ error: "Prénom ou nom requis" }, { status: 400 });
   }
+
+  const slug = slugify(fullName);
+
+  const insertPayload = {
+    slug,
+    name: fullName,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    bio: body.description || null,
+    job_title: body.job_title || null,
+    company: body.company || null,
+    company_website: body.company_website || null,
+    linkedin: body.linkedin || null,
+    image_url: body.image_url || null,
+  };
+
+  const { data, error } = await supabase
+    .from("authors")
+    .insert(insertPayload)
+    .select(
+      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
+    )
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(toApiShape(data as AuthorRow));
 }
 
-// PUT: update author
+// PUT : mise à jour d'un auteur
 export async function PUT(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
   const body = await request.json();
-
   if (!body.id) {
     return NextResponse.json({ error: "ID requis" }, { status: 400 });
   }
 
-  try {
-    const updateData: Record<string, unknown> = {
-      first_name: body.first_name,
-      last_name: body.last_name,
-      description: body.description,
-    };
+  const firstName = String(body.first_name ?? "").trim();
+  const lastName = String(body.last_name ?? "").trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-    if (body.email) {
-      updateData.email = body.email;
-    }
+  const updatePayload = {
+    name: fullName || undefined,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    bio: body.description ?? null,
+    job_title: body.job_title ?? null,
+    company: body.company ?? null,
+    company_website: body.company_website ?? null,
+    linkedin: body.linkedin ?? null,
+    image_url: body.image_url ?? null,
+  };
 
-    // Molongui meta
-    const meta: Record<string, string | number> = {
-      molongui_author_job: body.job_title || "",
-      molongui_author_company: body.company || "",
-      molongui_author_company_link: body.company_website || "",
-      molongui_author_linkedin: body.linkedin || "",
-    };
-    if (body.image_id) {
-      meta.molongui_author_image_id = body.image_id;
-      if (body.image_url) meta.molongui_author_image_url = body.image_url;
-    }
-    updateData.meta = meta;
+  const { data, error } = await supabase
+    .from("authors")
+    .update(updatePayload)
+    .eq("id", body.id)
+    .select(
+      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
+    )
+    .single();
 
-    const res = await wpFetch(`/users/${body.id}`, {
-      method: "POST",
-      body: JSON.stringify(updateData),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: err }, { status: 502 });
-    }
-
-    const updated = await res.json();
-    return NextResponse.json({ success: true, name: updated.name });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur" },
-      { status: 502 }
-    );
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  return NextResponse.json(toApiShape(data as AuthorRow));
+}
+
+// DELETE : suppression (admin uniquement)
+export async function DELETE(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "ID requis" }, { status: 400 });
+  }
+
+  const { error } = await supabase.from("authors").delete().eq("id", id);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

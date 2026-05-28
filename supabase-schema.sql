@@ -94,7 +94,7 @@ CREATE POLICY "Seuls les admins peuvent supprimer des articles"
 CREATE POLICY "Insertion articles"
   ON public.articles FOR INSERT
   TO authenticated
-  USING (true);
+  WITH CHECK (true);
 
 -- 4. Fonction pour mettre à jour updated_at automatiquement
 CREATE OR REPLACE FUNCTION public.update_updated_at()
