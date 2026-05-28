@@ -68,7 +68,10 @@ Réponds uniquement avec la citation, rien d'autre.`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 400,
+            maxOutputTokens: 2000,
+            // Désactive le "thinking" interne de gemini-2.5-flash qui consomme
+            // les output tokens avant le texte final → réponses tronquées.
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       }
@@ -94,14 +97,25 @@ Réponds uniquement avec la citation, rien d'autre.`;
 
   type GeminiResp = {
     candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
+      content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+      finishReason?: string;
     }>;
   };
   const data = (await geminiRes.json()) as GeminiResp;
-  const raw = data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text;
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  // Concatène tous les morceaux de texte non-pensée
+  const raw = parts
+    .filter((p) => !p.thought && typeof p.text === "string")
+    .map((p) => p.text as string)
+    .join(" ")
+    .trim();
   if (!raw) {
     return NextResponse.json(
-      { error: "Gemini n'a pas renvoyé de texte." },
+      {
+        error: `Gemini n'a pas renvoyé de texte (finishReason: ${
+          data.candidates?.[0]?.finishReason ?? "n/a"
+        }).`,
+      },
       { status: 502 }
     );
   }
