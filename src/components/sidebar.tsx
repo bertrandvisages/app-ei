@@ -9,7 +9,6 @@ import type { Profile } from "@/lib/types";
 const navigation = [
   { name: "Dossiers", href: "/dashboard/dossiers", icon: FolderIcon },
   { name: "Opinions", href: "/dashboard/contributions", icon: FileTextIcon },
-  { name: "Pages", href: "/dashboard/pages", icon: NewspaperIcon },
   { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
   { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
 ];
