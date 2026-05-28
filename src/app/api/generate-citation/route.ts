@@ -44,14 +44,13 @@ CONTENU :
 ${plainContent}
 
 Ta mission : extraire une CITATION (pull-quote) directement tirée du contenu, idéale pour la carte publique. Contraintes impératives :
-- UNE phrase complète, OU au maximum DEUX phrases complètes
+- DE 1 à 4 phrases complètes (selon ce qui rend le mieux pour l'édito)
 - TOUJOURS commencer par une majuscule et TOUJOURS finir par un point/point d'exclamation/point d'interrogation (jamais "…")
 - JAMAIS de phrase tronquée
 - Doit être autoporteuse (compréhensible sans le contexte)
 - Ton éditorial, percutant, pas trop technique
 - Pas de guillemets autour, pas de markdown, pas de préambule du type "Voici la citation :"
 - Français correct, typographie soignée (espaces insécables avant : ; ! ?)
-- Reformule légèrement si nécessaire pour rester dans 1-2 phrases naturelles
 
 Réponds uniquement avec la citation, rien d'autre.`;
 
@@ -69,7 +68,7 @@ Réponds uniquement avec la citation, rien d'autre.`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 200,
+            maxOutputTokens: 400,
           },
         }),
       }
