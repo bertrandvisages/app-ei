@@ -304,6 +304,18 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
           padding-left: 1.5em;
           margin-bottom: 0.75em;
         }
+        .tiptap ul {
+          list-style: disc outside;
+        }
+        .tiptap ol {
+          list-style: decimal outside;
+        }
+        .tiptap li {
+          margin-bottom: 0.25em;
+        }
+        .tiptap li > p {
+          margin-bottom: 0;
+        }
         .tiptap blockquote {
           border-left: 3px solid #E35205;
           padding-left: 1em;
