@@ -452,7 +452,7 @@ export default function AbonnesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-xs h-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        className="text-xs h-8 text-destructive hover:bg-destructive hover:text-white"
                         onClick={() => handleDelete(r)}
                         disabled={deletingId === r.id}
                       >

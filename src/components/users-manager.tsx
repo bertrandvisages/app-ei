@@ -228,7 +228,7 @@ export function UsersManager({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs h-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          className="text-xs h-8 text-destructive hover:bg-destructive hover:text-white"
                           onClick={() => handleDelete(profile)}
                           disabled={deletingId === profile.id}
                         >
