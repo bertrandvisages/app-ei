@@ -7,12 +7,10 @@ import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
 const navigation = [
-  { name: "Actualités", href: "/dashboard", icon: NewspaperIcon },
-  { name: "Publiés", href: "/dashboard/publies", icon: CheckCircleIcon },
-  { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
-  { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
   { name: "Dossiers", href: "/dashboard/dossiers", icon: FolderIcon },
-  { name: "Contributions", href: "/dashboard/contributions", icon: FileTextIcon },
+  { name: "Opinions", href: "/dashboard/contributions", icon: FileTextIcon },
+  { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
+  { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
 ];
 
 const adminNavigation = [
