@@ -56,6 +56,7 @@ export default function ContributionsPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editCitation, setEditCitation] = useState("");
+  const [editAuthorId, setEditAuthorId] = useState<string>("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
@@ -194,6 +195,7 @@ export default function ContributionsPage() {
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
       setEditCitation(contrib.citation || "");
+      setEditAuthorId(contrib.author || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
     }
@@ -219,6 +221,7 @@ export default function ContributionsPage() {
           title: editTitle,
           content: editContent,
           citation: editCitation,
+          author_id: editAuthorId || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           featured_media: featuredMediaToSend,
@@ -241,6 +244,7 @@ export default function ContributionsPage() {
               title: editTitle,
               content: editContent,
               citation: editCitation,
+              author: editAuthorId,
               ...(newImage ? { image: newImage, image_id: featuredMediaToSend! } : {}),
             }
           : c
@@ -629,12 +633,29 @@ export default function ContributionsPage() {
                               </Button>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
-                            <Input
-                              value={editTitle}
-                              onChange={(e) => setEditTitle(e.target.value)}
-                            />
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Auteur</Label>
+                              <select
+                                value={editAuthorId}
+                                onChange={(e) => setEditAuthorId(e.target.value)}
+                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              >
+                                <option value="">— Aucun —</option>
+                                {authors.map((a) => (
+                                  <option key={a.id} value={a.id.toString()}>
+                                    {a.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
+                              <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                              />
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">
