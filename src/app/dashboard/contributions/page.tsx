@@ -57,6 +57,7 @@ export default function ContributionsPage() {
   const [editContent, setEditContent] = useState("");
   const [editCitation, setEditCitation] = useState("");
   const [editAuthorId, setEditAuthorId] = useState<string>("");
+  const [generatingCitation, setGeneratingCitation] = useState(false);
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
@@ -185,6 +186,29 @@ export default function ContributionsPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
     setCreating(false);
+  };
+
+  const handleGenerateCitation = async () => {
+    if (!editTitle.trim()) {
+      toast.error("Le titre est nécessaire pour générer une citation");
+      return;
+    }
+    setGeneratingCitation(true);
+    try {
+      const res = await fetch("/api/generate-citation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle, content: editContent }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setEditCitation(data.citation);
+      toast.success("Citation générée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingCitation(false);
+    }
   };
 
   const toggleEdit = (contrib: Contribution) => {
@@ -669,7 +693,20 @@ export default function ContributionsPage() {
                               placeholder="Phrase d'accroche de l'édito, mise en avant dans la liste publique."
                               className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
                             />
-                            <p className="text-[10px] text-muted-foreground text-right">{editCitation.length}/280</p>
+                            <div className="flex items-center justify-between">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-8"
+                                onClick={handleGenerateCitation}
+                                disabled={generatingCitation || !editTitle.trim()}
+                                title="Génère une citation à partir du titre et du contenu via IA"
+                              >
+                                {generatingCitation ? "Génération…" : "✨ Générer avec IA"}
+                              </Button>
+                              <p className="text-[10px] text-muted-foreground">{editCitation.length}/280</p>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
