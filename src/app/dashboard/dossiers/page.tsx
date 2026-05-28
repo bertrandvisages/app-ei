@@ -616,7 +616,7 @@ export default function DossiersPage() {
                           {/* Génération IA */}
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Générer une nouvelle image (Gemini 3 Pro)
+                              Générer une nouvelle image
                             </p>
                             <div className="flex items-end gap-3">
                               <div className="flex-1 space-y-1">
