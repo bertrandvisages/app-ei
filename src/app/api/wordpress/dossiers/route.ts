@@ -12,6 +12,8 @@ type DossierRow = {
   description: string | null;
   excerpt: string | null;
   cover_image_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   author_id: string | null;
   sort_order: number;
   status: "draft" | "publie" | "archive";
@@ -19,6 +21,9 @@ type DossierRow = {
   created_at: string;
   updated_at: string;
 };
+
+const SELECT_COLS =
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, status, published_at, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -39,8 +44,8 @@ function toApiShape(d: DossierRow) {
     slug: d.slug,
     image: d.cover_image_url ?? "",
     image_id: null,
-    seo_title: "",
-    seo_description: "",
+    seo_title: d.seo_title ?? "",
+    seo_description: d.seo_description ?? "",
     sort_order: d.sort_order,
   };
 }
@@ -61,7 +66,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("dossiers")
     .select(
-      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at, updated_at"
+      SELECT_COLS
     )
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
@@ -107,7 +112,7 @@ export async function POST(request: Request) {
     .from("dossiers")
     .insert(insertPayload)
     .select(
-      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at, updated_at"
+      SELECT_COLS
     )
     .single();
 
@@ -155,6 +160,12 @@ export async function PUT(request: Request) {
   }
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
   if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
+  // Champs SEO : on stocke null si l'éditeur vide la case pour activer
+  // le fallback côté site Astro (qui retombe sur title/excerpt si null).
+  if (body.seo_title !== undefined)
+    updatePayload.seo_title = body.seo_title || null;
+  if (body.seo_description !== undefined)
+    updatePayload.seo_description = body.seo_description || null;
   let willBePublished = false;
   if (body.status !== undefined) {
     const s = body.status === "publish" ? "publie" : body.status;

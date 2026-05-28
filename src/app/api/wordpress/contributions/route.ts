@@ -15,11 +15,16 @@ type ContribRow = {
   excerpt: string | null;
   citation: string | null;
   cover_image_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   status: "draft" | "publie" | "archive";
   published_at: string | null;
   created_at: string;
   updated_at: string;
 };
+
+const SELECT_COLS =
+  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, status, published_at, created_at, updated_at";
 
 // Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
 function isModifiedSincePublish(c: ContribRow): boolean {
@@ -42,8 +47,8 @@ function toApiShape(c: ContribRow) {
     slug: c.slug,
     image: c.cover_image_url ?? "",
     image_id: null,
-    seo_title: "",
-    seo_description: "",
+    seo_title: c.seo_title ?? "",
+    seo_description: c.seo_description ?? "",
   };
 }
 
@@ -63,7 +68,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("contributions")
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at, updated_at"
+      SELECT_COLS
     )
     .order("created_at", { ascending: false });
 
@@ -111,7 +116,7 @@ export async function POST(request: Request) {
     .from("contributions")
     .insert(insertPayload)
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at, updated_at"
+      SELECT_COLS
     )
     .single();
 
@@ -160,6 +165,12 @@ export async function PUT(request: Request) {
   }
   if (body.dossier_id !== undefined) updatePayload.dossier_id = body.dossier_id;
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
+  // Champs SEO : on stocke null si l'éditeur vide la case pour activer
+  // le fallback côté site Astro (qui retombe sur title/citation/excerpt si null).
+  if (body.seo_title !== undefined)
+    updatePayload.seo_title = body.seo_title || null;
+  if (body.seo_description !== undefined)
+    updatePayload.seo_description = body.seo_description || null;
   let willBePublished = false;
   if (body.status !== undefined) {
     // Map: front peut envoyer 'publish' (vocab WP) → on stocke 'publie'
