@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Table,
@@ -26,17 +25,28 @@ export function UsersManager({
   profiles: Profile[];
   currentUserId: string;
 }) {
-  const router = useRouter();
-  // Le state local sert juste à se rafraîchir après création.
-  // Les rôles sont en lecture seule : un seul admin (le current user), tous les autres = editeur.
-  const [profiles] = useState(initialProfiles);
+  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
     fullName: "",
   });
+
+  const refetch = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!error && data) setProfiles(data as Profile[]);
+  }, []);
+
+  useEffect(() => {
+    setProfiles(initialProfiles);
+  }, [initialProfiles]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,13 +73,52 @@ export function UsersManager({
       toast.success("Éditeur créé");
       setShowForm(false);
       setNewUser({ email: "", password: "", fullName: "" });
-      router.refresh();
+      await refetch();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erreur lors de la création"
       );
     }
     setCreating(false);
+  };
+
+  const handleDelete = async (profile: Profile) => {
+    const name = profile.full_name || profile.email;
+    const confirmed = window.confirm(
+      `Supprimer définitivement « ${name} » ?\n\nLe compte sera désactivé et il ne pourra plus accéder au dashboard.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(profile.id);
+    try {
+      const res = await fetch("/api/users/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.id }),
+      });
+
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: `Réponse serveur invalide (HTTP ${res.status}).` };
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur HTTP ${res.status}`);
+      }
+
+      toast.success("Éditeur supprimé");
+      // Mise à jour optimiste + refetch en arrière-plan
+      setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
+      refetch();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -145,27 +194,52 @@ export function UsersManager({
               <TableHead>Email</TableHead>
               <TableHead>Rôle</TableHead>
               <TableHead>Inscrit le</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles.map((profile) => (
-              <TableRow key={profile.id}>
-                <TableCell className="font-medium">
-                  {profile.full_name || "-"}
-                </TableCell>
-                <TableCell>{profile.email}</TableCell>
-                <TableCell>
-                  {profile.id === currentUserId ? (
-                    <Badge>Admin</Badge>
-                  ) : (
-                    <Badge variant="secondary">Éditeur</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(profile.created_at).toLocaleDateString("fr-FR")}
+            {profiles.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  Aucun éditeur pour le moment.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              profiles.map((profile) => {
+                const isMe = profile.id === currentUserId;
+                return (
+                  <TableRow key={profile.id}>
+                    <TableCell className="font-medium">
+                      {profile.full_name || "—"}
+                    </TableCell>
+                    <TableCell>{profile.email}</TableCell>
+                    <TableCell>
+                      {isMe ? (
+                        <Badge>Admin</Badge>
+                      ) : (
+                        <Badge variant="secondary">Éditeur</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(profile.created_at).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {!isMe && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => handleDelete(profile)}
+                          disabled={deletingId === profile.id}
+                        >
+                          {deletingId === profile.id ? "Suppression…" : "Supprimer"}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>
