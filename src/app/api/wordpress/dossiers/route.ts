@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/slug";
 import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
+import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
 
 type DossierRow = {
   id: string;
@@ -135,7 +136,23 @@ export async function PUT(request: Request) {
   const updatePayload: Record<string, unknown> = {};
   if (body.title !== undefined) updatePayload.title = body.title;
   if (body.content !== undefined) updatePayload.description = body.content;
-  if (body.cover_image_url !== undefined) updatePayload.cover_image_url = body.cover_image_url;
+  // Si on remplace la cover, on récupère l'ancienne URL pour la supprimer
+  // du Storage après le UPDATE (best-effort, voir lib/storage.ts).
+  let previousCoverUrl: string | null = null;
+  if (body.cover_image_url !== undefined) {
+    updatePayload.cover_image_url = body.cover_image_url;
+    const { data: current } = await supabase
+      .from("dossiers")
+      .select("cover_image_url")
+      .eq("id", body.id)
+      .single();
+    if (
+      current?.cover_image_url &&
+      current.cover_image_url !== body.cover_image_url
+    ) {
+      previousCoverUrl = current.cover_image_url;
+    }
+  }
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
   if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
   let willBePublished = false;
@@ -159,6 +176,10 @@ export async function PUT(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (previousCoverUrl) {
+    await deleteStorageObjectByPublicUrl(supabase, previousCoverUrl);
   }
 
   if (willBePublished) {
