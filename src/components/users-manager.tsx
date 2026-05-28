@@ -49,8 +49,16 @@ export function UsersManager({
         body: JSON.stringify(newUser),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: `Réponse serveur invalide (HTTP ${res.status}).` };
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur HTTP ${res.status}`);
+      }
 
       toast.success("Éditeur créé");
       setShowForm(false);
