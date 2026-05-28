@@ -57,6 +57,8 @@ export default function ContributionsPage() {
   const [editContent, setEditContent] = useState("");
   const [editCitation, setEditCitation] = useState("");
   const [editAuthorId, setEditAuthorId] = useState<string>("");
+  const [editCoverUrl, setEditCoverUrl] = useState("");
+  const [genCandidates, setGenCandidates] = useState<Record<string, string[]>>({});
   const [generatingCitation, setGeneratingCitation] = useState(false);
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
@@ -220,8 +222,49 @@ export default function ContributionsPage() {
       setEditContent(contrib.content);
       setEditCitation(contrib.citation || "");
       setEditAuthorId(contrib.author || "");
+      setEditCoverUrl(contrib.image || "");
+      setImageStyle("");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+    }
+  };
+
+  const handleGenerateGemini = async (contrib: Contribution) => {
+    if (!editingId) return;
+    if (!imageStyle) {
+      toast.error("Choisis un style d'image");
+      return;
+    }
+    setGeneratingIds((prev) => new Set(prev).add(editingId));
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle || contrib.title,
+          content: editContent || contrib.content,
+          style: imageStyle,
+          folder: "contributions/generated",
+          aspectRatio: "16:9",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur Gemini");
+
+      setGenCandidates((prev) => ({
+        ...prev,
+        [editingId]: [data.url, ...(prev[editingId] || [])].slice(0, 4),
+      }));
+      setEditCoverUrl(data.url);
+      toast.success("Image générée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(editingId);
+        return next;
+      });
     }
   };
 
@@ -229,13 +272,8 @@ export default function ContributionsPage() {
     if (!editingId) return;
     setSaving(true);
     try {
-      // Determine the selected image_id (only send if user changed it)
-      const selectedId = selectedImage[editingId];
       const currentContrib = contributions.find((c) => c.id === editingId);
-      const featuredMediaToSend =
-        selectedId !== undefined && selectedId !== currentContrib?.image_id
-          ? selectedId
-          : undefined;
+      const coverChanged = editCoverUrl !== (currentContrib?.image || "");
 
       const res = await fetch("/api/wordpress/contributions", {
         method: "PUT",
@@ -248,18 +286,13 @@ export default function ContributionsPage() {
           author_id: editAuthorId || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
-          featured_media: featuredMediaToSend,
+          ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
       toast.success("Sauvegardé");
-
-      // Update the contribution image if user picked a candidate
-      const newImage = featuredMediaToSend
-        ? candidates[editingId]?.find((c) => c.id === featuredMediaToSend)?.url
-        : undefined;
 
       setContributions(contributions.map((c) =>
         c.id === editingId
@@ -269,7 +302,7 @@ export default function ContributionsPage() {
               content: editContent,
               citation: editCitation,
               author: editAuthorId,
-              ...(newImage ? { image: newImage, image_id: featuredMediaToSend! } : {}),
+              ...(coverChanged ? { image: editCoverUrl } : {}),
             }
           : c
       ));
@@ -582,55 +615,60 @@ export default function ContributionsPage() {
                     <TableRow key={`${contrib.id}-edit`}>
                       <TableCell colSpan={6} className="bg-muted/30 p-0">
                         <div className="p-5 space-y-4">
-                          {(() => {
-                            const allImages: { url: string; id: number | null }[] = [];
-                            if (contrib.image && contrib.image_id) {
-                              allImages.push({ url: contrib.image.replace(/-\d+x\d+\./, '.'), id: contrib.image_id });
-                            }
-                            for (const c of (candidates[contrib.id] || [])) {
-                              allImages.push({ url: c.url, id: c.id });
-                            }
-                            if (allImages.length === 0) return null;
-                            const currentSel = selectedImage[contrib.id] ?? contrib.image_id;
-                            return (
-                              <div className="flex gap-4 flex-wrap">
-                                {allImages.map((img, idx) => (
-                                  <label
-                                    key={`${img.id}-${idx}`}
-                                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                                      currentSel === img.id ? "border-[#E35205]" : "border-transparent hover:border-muted-foreground/30"
+                          {/* Aperçu de la cover actuelle */}
+                          {editCoverUrl ? (
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Image actuelle</Label>
+                              <img
+                                src={editCoverUrl}
+                                alt="Cover"
+                                className="block rounded-lg border max-w-full"
+                                style={{ maxHeight: 320 }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+                              Aucune image. Génère-en une ci-dessous.
+                            </div>
+                          )}
+
+                          {/* Alternatives générées */}
+                          {(genCandidates[contrib.id]?.length || 0) > 0 && (
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                Alternatives générées (clique pour sélectionner)
+                              </Label>
+                              <div className="flex gap-2 flex-wrap">
+                                {genCandidates[contrib.id]!.map((url) => (
+                                  <button
+                                    type="button"
+                                    key={url}
+                                    onClick={() => setEditCoverUrl(url)}
+                                    className={`relative rounded-md overflow-hidden border-2 transition-all ${
+                                      editCoverUrl === url
+                                        ? "border-[#E35205]"
+                                        : "border-transparent hover:border-muted-foreground/30"
                                     }`}
                                   >
-                                    <img src={img.url} alt="" className="block rounded" style={{ width: '400px' }} />
-                                    <input
-                                      type="radio"
-                                      name={`image-select-${contrib.id}`}
-                                      checked={currentSel === img.id}
-                                      onChange={() => {
-                                        if (img.id !== null) {
-                                          setSelectedImage((prev) => ({ ...prev, [contrib.id]: img.id }));
-                                          if (img.id !== contrib.image_id) {
-                                            setDirtyImages((prev) => new Set(prev).add(contrib.id));
-                                          }
-                                        }
-                                      }}
-                                      className="absolute top-2 right-2 w-5 h-5 accent-[#E35205]"
-                                    />
-                                  </label>
+                                    <img src={url} alt="" className="block" style={{ width: 160, height: 90, objectFit: "cover" }} />
+                                  </button>
                                 ))}
                               </div>
-                            );
-                          })()}
+                            </div>
+                          )}
+
+                          {/* Génération IA */}
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Générer une image</p>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Générer une nouvelle image</p>
                             <div className="flex items-end gap-3">
                               <div className="flex-1 space-y-1">
+                                <Label className="text-xs">Style</Label>
                                 <select
                                   value={imageStyle}
                                   onChange={(e) => setImageStyle(e.target.value)}
                                   className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
-                                  <option value="">Choisir un style...</option>
+                                  <option value="">Choisir un style…</option>
                                   <option value="corporate-elegant">Corporate élégant</option>
                                   <option value="analogie-sportive">Analogie sportive</option>
                                   <option value="metaphore-nature">Métaphore nature</option>
@@ -646,14 +684,10 @@ export default function ContributionsPage() {
                               <Button
                                 size="sm"
                                 className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
-                                onClick={() => handleGenerateImage(contrib)}
-                                disabled={
-                                  generatingIds.has(contrib.id) ||
-                                  !imageStyle ||
-                                  (candidates[contrib.id]?.length || 0) >= 2
-                                }
+                                onClick={() => handleGenerateGemini(contrib)}
+                                disabled={generatingIds.has(contrib.id) || !imageStyle}
                               >
-                                {generatingIds.has(contrib.id) ? "En cours..." : "Générer"}
+                                {generatingIds.has(contrib.id) ? "Génération…" : "Générer"}
                               </Button>
                             </div>
                           </div>
