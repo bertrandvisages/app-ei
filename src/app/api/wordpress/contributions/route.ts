@@ -12,6 +12,7 @@ type ContribRow = {
   title: string;
   content: string | null;
   excerpt: string | null;
+  citation: string | null;
   cover_image_url: string | null;
   status: "draft" | "publie" | "archive";
   published_at: string | null;
@@ -24,6 +25,7 @@ function toApiShape(c: ContribRow) {
     id: c.id,
     title: c.title,
     content: c.content ?? "",
+    citation: c.citation ?? "",
     status: c.status === "publie" ? "publish" : c.status, // map publié vers vocabulaire WP du front
     author: c.author_id,
     date: c.published_at ?? c.created_at,
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("contributions")
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, cover_image_url, status, published_at, created_at"
+      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
     slug,
     title: body.title,
     content: body.content ?? null,
+    citation: body.citation ?? null,
     author_id: String(body.author_id),
     dossier_id: body.dossier_id ?? null,
     status: "draft" as const,
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
     .from("contributions")
     .insert(insertPayload)
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, cover_image_url, status, published_at, created_at"
+      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at"
     )
     .single();
 
@@ -128,6 +131,7 @@ export async function PUT(request: Request) {
   const updatePayload: Record<string, unknown> = {};
   if (body.title !== undefined) updatePayload.title = body.title;
   if (body.content !== undefined) updatePayload.content = body.content;
+  if (body.citation !== undefined) updatePayload.citation = body.citation;
   if (body.cover_image_url !== undefined) updatePayload.cover_image_url = body.cover_image_url;
   if (body.dossier_id !== undefined) updatePayload.dossier_id = body.dossier_id;
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;

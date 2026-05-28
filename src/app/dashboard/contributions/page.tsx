@@ -27,6 +27,7 @@ interface Contribution {
   title: string;
   slug: string;
   content: string;
+  citation: string;
   status: string;
   author: string;
   date: string;
@@ -54,6 +55,7 @@ export default function ContributionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editCitation, setEditCitation] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
@@ -191,6 +193,7 @@ export default function ContributionsPage() {
       setEditingId(contrib.id);
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
+      setEditCitation(contrib.citation || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
     }
@@ -215,6 +218,7 @@ export default function ContributionsPage() {
           id: editingId,
           title: editTitle,
           content: editContent,
+          citation: editCitation,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           featured_media: featuredMediaToSend,
@@ -236,6 +240,7 @@ export default function ContributionsPage() {
               ...c,
               title: editTitle,
               content: editContent,
+              citation: editCitation,
               ...(newImage ? { image: newImage, image_id: featuredMediaToSend! } : {}),
             }
           : c
@@ -630,6 +635,20 @@ export default function ContributionsPage() {
                               value={editTitle}
                               onChange={(e) => setEditTitle(e.target.value)}
                             />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium text-muted-foreground">
+                              Citation <span className="text-muted-foreground/70">(affichée sur la carte du site, ~2-3 lignes)</span>
+                            </Label>
+                            <textarea
+                              value={editCitation}
+                              onChange={(e) => setEditCitation(e.target.value)}
+                              rows={3}
+                              maxLength={280}
+                              placeholder="Phrase d'accroche de l'édito, mise en avant dans la liste publique."
+                              className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                            />
+                            <p className="text-[10px] text-muted-foreground text-right">{editCitation.length}/280</p>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
