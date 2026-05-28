@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
-  const { email, password, fullName, role } = await request.json();
+  const { email, password, fullName } = await request.json();
 
   if (!email || !password) {
     return NextResponse.json(
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   }
 
   // Create user with admin client (service_role)
+  // Le trigger handle_new_user crée automatiquement le profile avec role='editeur'
   const adminClient = createAdminClient();
   const { data: newUser, error: createError } =
     await adminClient.auth.admin.createUser({
@@ -47,14 +48,6 @@ export async function POST(request: Request) {
       { error: createError.message },
       { status: 400 }
     );
-  }
-
-  // Update role if admin
-  if (role === "admin" && newUser.user) {
-    await adminClient
-      .from("profiles")
-      .update({ role: "admin" })
-      .eq("id", newUser.user.id);
   }
 
   return NextResponse.json({ success: true, userId: newUser.user?.id });
