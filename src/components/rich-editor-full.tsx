@@ -139,6 +139,14 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
       <div className="flex gap-1 border-b px-2 py-1.5 flex-wrap">
         <button
           type="button"
+          onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setParagraph().run(); }}
+          className={btnClass(isActive("paragraph"))}
+          title="Paragraphe normal"
+        >
+          P
+        </button>
+        <button
+          type="button"
           onMouseDown={(e) => { e.preventDefault(); editor.chain().toggleHeading({ level: 2 }).run(); }}
           className={btnClass(isActive("heading", { level: 2 }))}
         >
