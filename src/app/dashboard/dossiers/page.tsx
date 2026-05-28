@@ -28,6 +28,7 @@ interface Contribution {
   slug: string;
   content: string;
   status: string;
+  is_modified?: boolean;
   author: string;
   date: string;
   link: string;
@@ -541,9 +542,13 @@ export default function DossiersPage() {
                     </TableCell>
                     <TableCell>
                       {contrib.status === "publish" ? (
-                        <span className="text-xs text-green-600 font-medium">Oui</span>
+                        contrib.is_modified ? (
+                          <span className="text-xs text-amber-600 font-medium">Modifié</span>
+                        ) : (
+                          <span className="text-xs text-green-600 font-medium">Publié</span>
+                        )
                       ) : (
-                        <span className="text-xs text-muted-foreground">Non</span>
+                        <span className="text-xs text-muted-foreground">Brouillon</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>

@@ -17,7 +17,14 @@ type ContribRow = {
   status: "draft" | "publie" | "archive";
   published_at: string | null;
   created_at: string;
+  updated_at: string;
 };
+
+// Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
+function isModifiedSincePublish(c: ContribRow): boolean {
+  if (c.status !== "publie" || !c.published_at || !c.updated_at) return false;
+  return new Date(c.updated_at).getTime() > new Date(c.published_at).getTime() + 2000;
+}
 
 // Map Supabase row → shape attendue par le dashboard (rétrocompat WP API)
 function toApiShape(c: ContribRow) {
@@ -27,6 +34,7 @@ function toApiShape(c: ContribRow) {
     content: c.content ?? "",
     citation: c.citation ?? "",
     status: c.status === "publie" ? "publish" : c.status, // map publié vers vocabulaire WP du front
+    is_modified: isModifiedSincePublish(c),
     author: c.author_id,
     date: c.published_at ?? c.created_at,
     link: "",
@@ -54,7 +62,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("contributions")
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at"
+      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
 
@@ -102,7 +110,7 @@ export async function POST(request: Request) {
     .from("contributions")
     .insert(insertPayload)
     .select(
-      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at"
+      "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, status, published_at, created_at, updated_at"
     )
     .single();
 

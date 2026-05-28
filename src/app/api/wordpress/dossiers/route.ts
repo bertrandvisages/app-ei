@@ -16,7 +16,13 @@ type DossierRow = {
   status: "draft" | "publie" | "archive";
   published_at: string | null;
   created_at: string;
+  updated_at: string;
 };
+
+function isModifiedSincePublish(d: DossierRow): boolean {
+  if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
+  return new Date(d.updated_at).getTime() > new Date(d.published_at).getTime() + 2000;
+}
 
 // Map Supabase row → shape attendue (rétrocompat WP API)
 function toApiShape(d: DossierRow) {
@@ -25,6 +31,7 @@ function toApiShape(d: DossierRow) {
     title: d.title,
     content: d.description ?? "",
     status: d.status === "publie" ? "publish" : d.status,
+    is_modified: isModifiedSincePublish(d),
     author: d.author_id,
     date: d.published_at ?? d.created_at,
     link: "",
@@ -53,7 +60,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("dossiers")
     .select(
-      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at"
+      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at, updated_at"
     )
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
@@ -99,7 +106,7 @@ export async function POST(request: Request) {
     .from("dossiers")
     .insert(insertPayload)
     .select(
-      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at"
+      "id, wp_id, slug, title, description, excerpt, cover_image_url, author_id, sort_order, status, published_at, created_at, updated_at"
     )
     .single();
 
