@@ -689,7 +689,6 @@ export default function ContributionsPage() {
                               value={editCitation}
                               onChange={(e) => setEditCitation(e.target.value)}
                               rows={3}
-                              maxLength={280}
                               placeholder="Phrase d'accroche de l'édito, mise en avant dans la liste publique."
                               className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
                             />
@@ -705,7 +704,7 @@ export default function ContributionsPage() {
                               >
                                 {generatingCitation ? "Génération…" : "✨ Générer avec IA"}
                               </Button>
-                              <p className="text-[10px] text-muted-foreground">{editCitation.length}/280</p>
+                              <p className="text-[10px] text-muted-foreground">{editCitation.length} caractères</p>
                             </div>
                           </div>
                           <div className="space-y-2">

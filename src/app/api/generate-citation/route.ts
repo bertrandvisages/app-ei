@@ -43,12 +43,15 @@ TITRE : ${title}
 CONTENU :
 ${plainContent}
 
-Ta mission : extraire UNE phrase d'accroche (citation/pull-quote) directement tirée du contenu, idéale pour une carte publique. Contraintes :
-- 1 à 3 phrases, max 280 caractères
+Ta mission : extraire une CITATION (pull-quote) directement tirée du contenu, idéale pour la carte publique. Contraintes impératives :
+- UNE phrase complète, OU au maximum DEUX phrases complètes
+- TOUJOURS commencer par une majuscule et TOUJOURS finir par un point/point d'exclamation/point d'interrogation (jamais "…")
+- JAMAIS de phrase tronquée
 - Doit être autoporteuse (compréhensible sans le contexte)
 - Ton éditorial, percutant, pas trop technique
 - Pas de guillemets autour, pas de markdown, pas de préambule du type "Voici la citation :"
 - Français correct, typographie soignée (espaces insécables avant : ; ! ?)
+- Reformule légèrement si nécessaire pour rester dans 1-2 phrases naturelles
 
 Réponds uniquement avec la citation, rien d'autre.`;
 
@@ -104,10 +107,22 @@ Réponds uniquement avec la citation, rien d'autre.`;
     );
   }
 
-  // Nettoyage : trim, retirer les guillemets éventuels, couper à 280
+  // Nettoyage : trim, retirer les guillemets éventuels autour, normaliser espaces
   let citation = raw.trim();
   citation = citation.replace(/^["'«»]+|["'«»]+$/g, "").trim();
-  if (citation.length > 280) citation = citation.slice(0, 277).trimEnd() + "…";
+  citation = citation.replace(/\s+/g, " ");
+
+  // Pas de troncature : on laisse la phrase complète, même si > 280 chars.
+  // Si vraiment trop long (>500), on coupe à la dernière phrase complète.
+  if (citation.length > 500) {
+    const cut = citation.slice(0, 500);
+    const lastEnd = Math.max(
+      cut.lastIndexOf("."),
+      cut.lastIndexOf("!"),
+      cut.lastIndexOf("?")
+    );
+    citation = lastEnd > 0 ? cut.slice(0, lastEnd + 1) : cut;
+  }
 
   return NextResponse.json({ citation });
 }
