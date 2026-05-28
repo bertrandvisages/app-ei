@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
 
 // Publie un article : passe le status à 'publie' dans Supabase.
 // La diffusion sur le site public (Astro) sera gérée en Phase 5.
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  // Fire-and-forget : on déclenche le rebuild Astro sans attendre la réponse
+  triggerLenoncoteRebuild();
 
   return NextResponse.json({ success: true, articleId });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/slug";
+import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
 
 type DossierRow = {
   id: string;
@@ -130,10 +131,14 @@ export async function PUT(request: Request) {
   if (body.cover_image_url !== undefined) updatePayload.cover_image_url = body.cover_image_url;
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
   if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
+  let willBePublished = false;
   if (body.status !== undefined) {
     const s = body.status === "publish" ? "publie" : body.status;
     updatePayload.status = s;
-    if (s === "publie") updatePayload.published_at = new Date().toISOString();
+    if (s === "publie") {
+      updatePayload.published_at = new Date().toISOString();
+      willBePublished = true;
+    }
   }
 
   if (Object.keys(updatePayload).length === 0) {
@@ -147,6 +152,10 @@ export async function PUT(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (willBePublished) {
+    triggerLenoncoteRebuild();
   }
 
   return NextResponse.json({ success: true });
