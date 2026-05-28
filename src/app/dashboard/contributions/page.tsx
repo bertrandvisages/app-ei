@@ -224,6 +224,12 @@ export default function ContributionsPage() {
       setEditCitation(contrib.citation || "");
       setEditAuthorId(contrib.author || "");
       setEditCoverUrl(contrib.image || "");
+      // Seed les vignettes avec la cover existante : on a 3 slots au total,
+      // donc une cover déjà en base = 1 slot utilisé + 2 générations possibles.
+      setGenCandidates((prev) => ({
+        ...prev,
+        [contrib.id]: contrib.image ? [contrib.image] : [],
+      }));
       setImageStyle("");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
@@ -254,7 +260,7 @@ export default function ContributionsPage() {
 
       setGenCandidates((prev) => ({
         ...prev,
-        [editingId]: [data.url, ...(prev[editingId] || [])].slice(0, 4),
+        [editingId]: [data.url, ...(prev[editingId] || [])].slice(0, 3),
       }));
       setEditCoverUrl(data.url);
       toast.success("Image générée");
@@ -642,7 +648,7 @@ export default function ContributionsPage() {
                           {(genCandidates[contrib.id]?.length || 0) > 0 && (
                             <div className="space-y-2">
                               <Label className="text-xs font-medium text-muted-foreground">
-                                Alternatives générées (clique pour sélectionner)
+                                Images disponibles ({genCandidates[contrib.id]?.length || 0}/3) — clique pour sélectionner
                               </Label>
                               <div className="flex gap-2 flex-wrap">
                                 {genCandidates[contrib.id]!.map((url) => (
@@ -691,11 +697,24 @@ export default function ContributionsPage() {
                                 size="sm"
                                 className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
                                 onClick={() => handleGenerateGemini(contrib)}
-                                disabled={generatingIds.has(contrib.id) || !imageStyle}
+                                disabled={
+                                  generatingIds.has(contrib.id) ||
+                                  !imageStyle ||
+                                  (genCandidates[contrib.id]?.length || 0) >= 3
+                                }
                               >
-                                {generatingIds.has(contrib.id) ? "Génération…" : "Générer"}
+                                {generatingIds.has(contrib.id)
+                                  ? "Génération…"
+                                  : (genCandidates[contrib.id]?.length || 0) >= 3
+                                  ? "Limite atteinte"
+                                  : "Générer"}
                               </Button>
                             </div>
+                            {(genCandidates[contrib.id]?.length || 0) >= 3 && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Limite de 3 images atteinte. Choisis une vignette ci-dessus, ou sauvegarde puis rouvre l&apos;édition pour repartir.
+                              </p>
+                            )}
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
