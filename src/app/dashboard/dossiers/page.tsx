@@ -507,23 +507,23 @@ export default function DossiersPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      {contrib.status === "draft" && (
-                        <Button
-                          size="sm"
-                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                          onClick={() => handlePublish(contrib.id)}
-                          disabled={publishing === contrib.id}
-                        >
-                          {publishing === contrib.id ? "..." : "Publier"}
-                        </Button>
-                      )}
-                      {contrib.status === "publish" && contrib.link && (
-                        <a href={contrib.link} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="outline" className="text-xs h-7">
-                            Voir
-                          </Button>
-                        </a>
-                      )}
+                      <Button
+                        size="sm"
+                        className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                        onClick={() => handlePublish(contrib.id)}
+                        disabled={publishing === contrib.id}
+                        title={
+                          contrib.status === "publish"
+                            ? "Re-déclencher un rebuild du site public"
+                            : "Publier ce dossier"
+                        }
+                      >
+                        {publishing === contrib.id
+                          ? "..."
+                          : contrib.status === "publish"
+                          ? "Republier"
+                          : "Publier"}
+                      </Button>
                     </TableCell>
                   </TableRow>
 
