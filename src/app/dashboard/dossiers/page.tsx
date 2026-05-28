@@ -189,17 +189,18 @@ export default function DossiersPage() {
       setEditContent(contrib.content);
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
-      // Cover actuelle + prompt par défaut
+      // Cover actuelle
       setEditCoverUrl(contrib.image || "");
-      setEditPrompt(
-        `Cover image éditoriale pour un article intitulé "${contrib.title}". Style photographique professionnel, ambiance finance/private equity, 16:9, sans texte dans l'image.`
-      );
+      // Reset prompt et style
+      setEditPrompt("");
+      setImageStyle("");
     }
   };
 
-  const handleGenerateGemini = async () => {
-    if (!editingId || !editPrompt.trim()) {
-      toast.error("Prompt vide");
+  const handleGenerateGemini = async (contrib: Contribution) => {
+    if (!editingId) return;
+    if (!imageStyle) {
+      toast.error("Choisis un style d'image");
       return;
     }
     setGeneratingIds((prev) => new Set(prev).add(editingId));
@@ -208,7 +209,9 @@ export default function DossiersPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: editPrompt,
+          title: editTitle || contrib.title,
+          content: editContent || contrib.content,
+          style: imageStyle,
           folder: "dossiers/generated",
           aspectRatio: "16:9",
         }),
@@ -216,7 +219,6 @@ export default function DossiersPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur Gemini");
 
-      // Ajoute aux candidats + sélectionne d'office la nouvelle image
       setGenCandidates((prev) => ({
         ...prev,
         [editingId]: [data.url, ...(prev[editingId] || [])].slice(0, 4),
@@ -616,23 +618,39 @@ export default function DossiersPage() {
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                               Générer une nouvelle image (Gemini 3 Pro)
                             </p>
-                            <textarea
-                              value={editPrompt}
-                              onChange={(e) => setEditPrompt(e.target.value)}
-                              rows={3}
-                              placeholder="Décris l'image souhaitée..."
-                              className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
-                            />
-                            <div className="flex justify-end">
+                            <div className="flex items-end gap-3">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-xs">Style</Label>
+                                <select
+                                  value={imageStyle}
+                                  onChange={(e) => setImageStyle(e.target.value)}
+                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">Choisir un style…</option>
+                                  <option value="corporate-elegant">Corporate élégant</option>
+                                  <option value="analogie-sportive">Analogie sportive</option>
+                                  <option value="metaphore-nature">Métaphore nature</option>
+                                  <option value="industriel-terrain">Industriel / terrain</option>
+                                  <option value="abstrait-data">Abstrait / data</option>
+                                  <option value="architecture-infrastructure">Architecture / infrastructure</option>
+                                  <option value="equipe-humain">Équipe / humain</option>
+                                  <option value="echiquier-strategie">Échiquier / stratégie</option>
+                                  <option value="exploration-aventure">Exploration / aventure</option>
+                                  <option value="coffre-fort-patrimoine">Coffre-fort / patrimoine</option>
+                                </select>
+                              </div>
                               <Button
                                 size="sm"
                                 className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
-                                onClick={handleGenerateGemini}
-                                disabled={generatingIds.has(contrib.id) || !editPrompt.trim()}
+                                onClick={() => handleGenerateGemini(contrib)}
+                                disabled={generatingIds.has(contrib.id) || !imageStyle}
                               >
-                                {generatingIds.has(contrib.id) ? "Génération..." : "Générer"}
+                                {generatingIds.has(contrib.id) ? "Génération…" : "Générer"}
                               </Button>
                             </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Le titre et le contenu du dossier servent à composer automatiquement le prompt avec le style choisi.
+                            </p>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
