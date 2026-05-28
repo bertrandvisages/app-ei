@@ -65,6 +65,10 @@ export default function DossiersPage() {
   const [candidates, setCandidates] = useState<Record<string, ImageCandidate[]>>({});
   const [selectedImage, setSelectedImage] = useState<Record<string, number | null>>({});
   const [dirtyImages, setDirtyImages] = useState<Set<string>>(new Set());
+  // Nouveau flow Gemini : prompt libre + URL de la cover sélectionnée
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editCoverUrl, setEditCoverUrl] = useState("");
+  const [genCandidates, setGenCandidates] = useState<Record<string, string[]>>({});
 
   // Restore session state on mount
   useEffect(() => {
@@ -185,6 +189,48 @@ export default function DossiersPage() {
       setEditContent(contrib.content);
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+      // Cover actuelle + prompt par défaut
+      setEditCoverUrl(contrib.image || "");
+      setEditPrompt(
+        `Cover image éditoriale pour un article intitulé "${contrib.title}". Style photographique professionnel, ambiance finance/private equity, 16:9, sans texte dans l'image.`
+      );
+    }
+  };
+
+  const handleGenerateGemini = async () => {
+    if (!editingId || !editPrompt.trim()) {
+      toast.error("Prompt vide");
+      return;
+    }
+    setGeneratingIds((prev) => new Set(prev).add(editingId));
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: editPrompt,
+          folder: "dossiers/generated",
+          aspectRatio: "16:9",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur Gemini");
+
+      // Ajoute aux candidats + sélectionne d'office la nouvelle image
+      setGenCandidates((prev) => ({
+        ...prev,
+        [editingId]: [data.url, ...(prev[editingId] || [])].slice(0, 4),
+      }));
+      setEditCoverUrl(data.url);
+      toast.success("Image générée");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(editingId);
+        return next;
+      });
     }
   };
 
@@ -192,12 +238,8 @@ export default function DossiersPage() {
     if (!editingId) return;
     setSaving(true);
     try {
-      const selectedId = selectedImage[editingId];
       const currentContrib = contributions.find((c) => c.id === editingId);
-      const featuredMediaToSend =
-        selectedId !== undefined && selectedId !== currentContrib?.image_id
-          ? selectedId
-          : undefined;
+      const coverChanged = editCoverUrl !== (currentContrib?.image || "");
 
       const res = await fetch("/api/wordpress/dossiers", {
         method: "PUT",
@@ -208,7 +250,7 @@ export default function DossiersPage() {
           content: editContent,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
-          featured_media: featuredMediaToSend,
+          ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
         }),
       });
       const data = await res.json();
@@ -216,17 +258,13 @@ export default function DossiersPage() {
 
       toast.success("Sauvegardé");
 
-      const newImage = featuredMediaToSend
-        ? candidates[editingId]?.find((c) => c.id === featuredMediaToSend)?.url
-        : undefined;
-
       setContributions(contributions.map((c) =>
         c.id === editingId
           ? {
               ...c,
               title: editTitle,
               content: editContent,
-              ...(newImage ? { image: newImage, image_id: featuredMediaToSend! } : {}),
+              ...(coverChanged ? { image: editCoverUrl } : {}),
             }
           : c
       ));
@@ -531,78 +569,68 @@ export default function DossiersPage() {
                     <TableRow key={`${contrib.id}-edit`}>
                       <TableCell colSpan={6} className="bg-muted/30 p-0">
                         <div className="p-5 space-y-4">
-                          {(() => {
-                            const allImages: { url: string; id: number | null }[] = [];
-                            if (contrib.image && contrib.image_id) {
-                              allImages.push({ url: contrib.image.replace(/-\d+x\d+\./, '.'), id: contrib.image_id });
-                            }
-                            for (const c of (candidates[contrib.id] || [])) {
-                              allImages.push({ url: c.url, id: c.id });
-                            }
-                            if (allImages.length === 0) return null;
-                            const currentSel = selectedImage[contrib.id] ?? contrib.image_id;
-                            return (
-                              <div className="flex gap-4 flex-wrap">
-                                {allImages.map((img, idx) => (
-                                  <label
-                                    key={`${img.id}-${idx}`}
-                                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                                      currentSel === img.id ? "border-[#E35205]" : "border-transparent hover:border-muted-foreground/30"
+                          {/* Aperçu de la cover actuelle */}
+                          {editCoverUrl ? (
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Image actuelle</Label>
+                              <img
+                                src={editCoverUrl}
+                                alt="Cover"
+                                className="block rounded-lg border max-w-full"
+                                style={{ maxHeight: 320 }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+                              Aucune image. Génère-en une ci-dessous.
+                            </div>
+                          )}
+
+                          {/* Alternatives générées */}
+                          {(genCandidates[contrib.id]?.length || 0) > 0 && (
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">
+                                Alternatives générées (clique pour sélectionner)
+                              </Label>
+                              <div className="flex gap-2 flex-wrap">
+                                {genCandidates[contrib.id]!.map((url) => (
+                                  <button
+                                    type="button"
+                                    key={url}
+                                    onClick={() => setEditCoverUrl(url)}
+                                    className={`relative rounded-md overflow-hidden border-2 transition-all ${
+                                      editCoverUrl === url
+                                        ? "border-[#E35205]"
+                                        : "border-transparent hover:border-muted-foreground/30"
                                     }`}
                                   >
-                                    <img src={img.url} alt="" className="block rounded" style={{ width: '400px' }} />
-                                    <input
-                                      type="radio"
-                                      name={`image-select-${contrib.id}`}
-                                      checked={currentSel === img.id}
-                                      onChange={() => {
-                                        if (img.id !== null) {
-                                          setSelectedImage((prev) => ({ ...prev, [contrib.id]: img.id }));
-                                          if (img.id !== contrib.image_id) {
-                                            setDirtyImages((prev) => new Set(prev).add(contrib.id));
-                                          }
-                                        }
-                                      }}
-                                      className="absolute top-2 right-2 w-5 h-5 accent-[#E35205]"
-                                    />
-                                  </label>
+                                    <img src={url} alt="" className="block" style={{ width: 160, height: 90, objectFit: "cover" }} />
+                                  </button>
                                 ))}
                               </div>
-                            );
-                          })()}
+                            </div>
+                          )}
+
+                          {/* Génération IA */}
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Générer une image</p>
-                            <div className="flex items-end gap-3">
-                              <div className="flex-1 space-y-1">
-                                <select
-                                  value={imageStyle}
-                                  onChange={(e) => setImageStyle(e.target.value)}
-                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                >
-                                  <option value="">Choisir un style...</option>
-                                  <option value="corporate-elegant">Corporate élégant</option>
-                                  <option value="analogie-sportive">Analogie sportive</option>
-                                  <option value="metaphore-nature">Métaphore nature</option>
-                                  <option value="industriel-terrain">Industriel / terrain</option>
-                                  <option value="abstrait-data">Abstrait / data</option>
-                                  <option value="architecture-infrastructure">Architecture / infrastructure</option>
-                                  <option value="equipe-humain">Équipe / humain</option>
-                                  <option value="echiquier-strategie">Échiquier / stratégie</option>
-                                  <option value="exploration-aventure">Exploration / aventure</option>
-                                  <option value="coffre-fort-patrimoine">Coffre-fort / patrimoine</option>
-                                </select>
-                              </div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Générer une nouvelle image (Gemini 3 Pro)
+                            </p>
+                            <textarea
+                              value={editPrompt}
+                              onChange={(e) => setEditPrompt(e.target.value)}
+                              rows={3}
+                              placeholder="Décris l'image souhaitée..."
+                              className="flex w-full rounded-md border bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                            />
+                            <div className="flex justify-end">
                               <Button
                                 size="sm"
                                 className="text-xs h-9 bg-[#E35205] hover:bg-[#c44604]"
-                                onClick={() => handleGenerateImage(contrib)}
-                                disabled={
-                                  generatingIds.has(contrib.id) ||
-                                  !imageStyle ||
-                                  (candidates[contrib.id]?.length || 0) >= 2
-                                }
+                                onClick={handleGenerateGemini}
+                                disabled={generatingIds.has(contrib.id) || !editPrompt.trim()}
                               >
-                                {generatingIds.has(contrib.id) ? "En cours..." : "Générer"}
+                                {generatingIds.has(contrib.id) ? "Génération..." : "Générer"}
                               </Button>
                             </div>
                           </div>
