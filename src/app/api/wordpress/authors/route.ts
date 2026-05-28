@@ -131,7 +131,7 @@ export async function POST(request: Request) {
   return NextResponse.json(toApiShape(data as AuthorRow));
 }
 
-// PUT : mise à jour d'un auteur
+// PUT : mise à jour d'un auteur (PATCH partiel : seuls les champs envoyés sont mis à jour)
 export async function PUT(request: Request) {
   const supabase = await createClient();
   const {
@@ -146,21 +146,28 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "ID requis" }, { status: 400 });
   }
 
-  const firstName = String(body.first_name ?? "").trim();
-  const lastName = String(body.last_name ?? "").trim();
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  // Construire le payload uniquement avec les champs explicitement présents
+  const updatePayload: Record<string, unknown> = {};
+  if (body.first_name !== undefined) updatePayload.first_name = body.first_name || null;
+  if (body.last_name !== undefined) updatePayload.last_name = body.last_name || null;
+  if (body.description !== undefined) updatePayload.bio = body.description || null;
+  if (body.job_title !== undefined) updatePayload.job_title = body.job_title || null;
+  if (body.company !== undefined) updatePayload.company = body.company || null;
+  if (body.company_website !== undefined) updatePayload.company_website = body.company_website || null;
+  if (body.linkedin !== undefined) updatePayload.linkedin = body.linkedin || null;
+  if (body.image_url !== undefined) updatePayload.image_url = body.image_url || null;
 
-  const updatePayload = {
-    name: fullName || undefined,
-    first_name: firstName || null,
-    last_name: lastName || null,
-    bio: body.description ?? null,
-    job_title: body.job_title ?? null,
-    company: body.company ?? null,
-    company_website: body.company_website ?? null,
-    linkedin: body.linkedin ?? null,
-    image_url: body.image_url ?? null,
-  };
+  // Recompute 'name' uniquement si first_name OU last_name a été fourni
+  if (body.first_name !== undefined || body.last_name !== undefined) {
+    const firstName = String(body.first_name ?? "").trim();
+    const lastName = String(body.last_name ?? "").trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    if (fullName) updatePayload.name = fullName;
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return NextResponse.json({ error: "Aucun champ à mettre à jour" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("authors")
