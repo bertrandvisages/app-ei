@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Table,
@@ -11,12 +11,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 // ─── Type unifié inscrits + subscribers ──────────────────────
 type Row = {
-  id: string;
+  id: string;             // clé composite "wp-xxx" ou "ins-xxx" pour React
+  raw_id: string;         // id natif pour les opérations server
   source: "wp" | "inscription";
   email: string;
   first_name: string | null;
@@ -50,6 +53,8 @@ function getName(r: Row) {
 export default function AbonnesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("registered_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -61,59 +66,112 @@ export default function AbonnesPage() {
   const [filterRecontacter, setFilterRecontacter] = useState<string>("");
   const [filterSource, setFilterSource] = useState<string>("");
 
+  const fetchRows = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: subs }, { data: insc }] = await Promise.all([
+      supabase
+        .from("subscribers")
+        .select(
+          "id, email, first_name, last_name, user_type, investisseur_type, societe, departement, newsletter, recontacter, cgu, registered_at, created_at"
+        ),
+      supabase
+        .from("inscrits")
+        .select(
+          "id, email, first_name, last_name, user_type, investisseur_type, societe, departement, newsletter, recontacter, cgu, created_at"
+        ),
+    ]);
+
+    const subsRows: Row[] = (subs ?? []).map((s) => ({
+      id: `wp-${s.id}`,
+      raw_id: s.id,
+      source: "wp",
+      email: s.email,
+      first_name: s.first_name,
+      last_name: s.last_name,
+      user_type: s.user_type,
+      investisseur_type: s.investisseur_type,
+      societe: s.societe,
+      departement: s.departement,
+      newsletter: !!s.newsletter,
+      recontacter: !!s.recontacter,
+      cgu: !!s.cgu,
+      registered_at: s.registered_at ?? s.created_at ?? null,
+    }));
+
+    const inscRows: Row[] = (insc ?? []).map((i) => ({
+      id: `ins-${i.id}`,
+      raw_id: i.id,
+      source: "inscription",
+      email: i.email,
+      first_name: i.first_name,
+      last_name: i.last_name,
+      user_type: i.user_type,
+      investisseur_type: i.investisseur_type,
+      societe: i.societe,
+      departement: i.departement,
+      newsletter: !!i.newsletter,
+      recontacter: !!i.recontacter,
+      cgu: !!i.cgu,
+      registered_at: i.created_at ?? null,
+    }));
+
+    setRows([...subsRows, ...inscRows]);
+  }, []);
+
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const [{ data: subs }, { data: insc }] = await Promise.all([
-        supabase
-          .from("subscribers")
-          .select(
-            "id, email, first_name, last_name, user_type, investisseur_type, societe, departement, newsletter, recontacter, cgu, registered_at, created_at"
-          ),
-        supabase
-          .from("inscrits")
-          .select(
-            "id, email, first_name, last_name, user_type, investisseur_type, societe, departement, newsletter, recontacter, cgu, created_at"
-          ),
-      ]);
-
-      const subsRows: Row[] = (subs ?? []).map((s) => ({
-        id: `wp-${s.id}`,
-        source: "wp",
-        email: s.email,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        user_type: s.user_type,
-        investisseur_type: s.investisseur_type,
-        societe: s.societe,
-        departement: s.departement,
-        newsletter: !!s.newsletter,
-        recontacter: !!s.recontacter,
-        cgu: !!s.cgu,
-        registered_at: s.registered_at ?? s.created_at ?? null,
-      }));
-
-      const inscRows: Row[] = (insc ?? []).map((i) => ({
-        id: `ins-${i.id}`,
-        source: "inscription",
-        email: i.email,
-        first_name: i.first_name,
-        last_name: i.last_name,
-        user_type: i.user_type,
-        investisseur_type: i.investisseur_type,
-        societe: i.societe,
-        departement: i.departement,
-        newsletter: !!i.newsletter,
-        recontacter: !!i.recontacter,
-        cgu: !!i.cgu,
-        registered_at: i.created_at ?? null,
-      }));
-
-      setRows([...subsRows, ...inscRows]);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setIsAdmin(profile?.role === "admin");
+      }
+      await fetchRows();
       setLoading(false);
     }
     load();
-  }, []);
+  }, [fetchRows]);
+
+  const handleDelete = async (row: Row) => {
+    const name = [row.first_name, row.last_name].filter(Boolean).join(" ") || row.email;
+    const confirmed = window.confirm(
+      `Supprimer définitivement « ${name} » ?\n\nL'abonné sera retiré de la base et, s'il avait un compte, son accès au site sera révoqué.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(row.id);
+    try {
+      const res = await fetch("/api/subscribers/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: row.source, id: row.raw_id }),
+      });
+
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: `Réponse serveur invalide (HTTP ${res.status}).` };
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur HTTP ${res.status}`);
+      }
+
+      toast.success("Abonné supprimé");
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -337,12 +395,13 @@ export default function AbonnesPage() {
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("registered_at")}>
                 Inscrit le <SortArrow col="registered_at" />
               </TableHead>
+              {isAdmin && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-12 text-muted-foreground">
                   Aucun abonné{hasActiveFilter ? " ne correspond aux filtres" : ""}
                 </TableCell>
               </TableRow>
@@ -388,6 +447,19 @@ export default function AbonnesPage() {
                       ? new Date(r.registered_at).toLocaleDateString("fr-FR")
                       : "—"}
                   </TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        onClick={() => handleDelete(r)}
+                        disabled={deletingId === r.id}
+                      >
+                        {deletingId === r.id ? "…" : "Supprimer"}
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
