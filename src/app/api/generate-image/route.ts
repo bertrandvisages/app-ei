@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { toAvif } from "@/lib/image";
 
 const BUCKET = "media";
 const MODEL = "gemini-3-pro-image-preview";
@@ -166,18 +167,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const buffer = Buffer.from(imagePart.inlineData.data, "base64");
-  const mime = imagePart.inlineData.mimeType || "image/png";
-  const ext = mime === "image/jpeg" ? "jpg" : mime.replace("image/", "") || "png";
+  const geminiBuffer = Buffer.from(imagePart.inlineData.data, "base64");
+  const geminiMime = imagePart.inlineData.mimeType || "image/png";
+
+  // Conversion en AVIF (qualité 60) avant upload pour éviter de stocker des
+  // PNG de 1-3 MB. Fallback transparent sur le PNG d'origine si sharp échoue.
+  const encoded = await toAvif(geminiBuffer, geminiMime);
 
   const ts = Date.now();
-  const path = `${folder}/${ts}.${ext}`;
+  const path = `${folder}/${ts}.${encoded.ext}`;
 
   // ─── Upload Storage ───────────────────────────────────
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, buffer, {
-      contentType: mime,
+    .upload(path, encoded.buffer, {
+      contentType: encoded.mime,
       upsert: false,
     });
 

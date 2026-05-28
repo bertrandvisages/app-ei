@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { toAvif, replaceExt } from "@/lib/image";
 
 const BUCKET = "media";
 
@@ -42,17 +43,22 @@ export async function POST(request: Request) {
     );
   }
 
-  // Path : <folder>/<timestamp>-<filename> (collision-safe)
-  const ts = Date.now();
-  const safeName = sanitizeFilename(file.name);
-  const path = `${folder}/${ts}-${safeName}`;
+  const originalBuffer = Buffer.from(await file.arrayBuffer());
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  // Conversion en AVIF (qualité 60) avant upload. SVG et formats non
+  // transcodables passent en pass-through. En cas d'erreur sharp, fallback
+  // transparent sur le buffer d'origine.
+  const encoded = await toAvif(originalBuffer, file.type);
+
+  // Path : <folder>/<timestamp>-<filename>, l'extension reflète l'encoding réel
+  const ts = Date.now();
+  const safeName = replaceExt(sanitizeFilename(file.name), encoded.ext);
+  const path = `${folder}/${ts}-${safeName}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, buffer, {
-      contentType: file.type,
+    .upload(path, encoded.buffer, {
+      contentType: encoded.mime,
       upsert: false,
     });
 
