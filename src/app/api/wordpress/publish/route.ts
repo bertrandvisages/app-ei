@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Publie un article : passe le status à 'publie' dans Supabase.
+// La diffusion sur le site public (Astro) sera gérée en Phase 5.
 export async function POST(request: Request) {
   const supabase = await createClient();
 
@@ -12,10 +14,13 @@ export async function POST(request: Request) {
   }
 
   const { articleId } = await request.json();
+  if (!articleId) {
+    return NextResponse.json({ error: "articleId requis" }, { status: 400 });
+  }
 
   const { data: article, error: articleError } = await supabase
     .from("articles")
-    .select("*")
+    .select("id, status")
     .eq("id", articleId)
     .single();
 
@@ -25,70 +30,22 @@ export async function POST(request: Request) {
 
   if (article.status !== "valide" && article.status !== "draft") {
     return NextResponse.json(
-      { error: "L'article ne peut pas être publié" },
+      { error: "L'article ne peut pas être publié dans son état actuel" },
       { status: 400 }
     );
   }
 
-  const wpUrl = process.env.WORDPRESS_API_URL;
-  const wpUser = process.env.WORDPRESS_USERNAME;
-  const wpPass = process.env.WORDPRESS_APP_PASSWORD;
+  const { error: updateError } = await supabase
+    .from("articles")
+    .update({
+      status: "publie",
+      published_by: user.id,
+    })
+    .eq("id", articleId);
 
-  if (!wpUrl || !wpUser || !wpPass) {
-    return NextResponse.json(
-      { error: "Configuration WordPress manquante" },
-      { status: 500 }
-    );
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  const credentials = Buffer.from(`${wpUser}:${wpPass}`).toString("base64");
-
-  try {
-    const wpResponse = await fetch(`${wpUrl}/posts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${credentials}`,
-      },
-      body: JSON.stringify({
-        title: article.title,
-        content: article.content || "",
-        status: "publish",
-        categories: [parseInt(process.env.WORDPRESS_CATEGORY_ID || "11", 10)],
-        tags: [parseInt(process.env.WORDPRESS_TAG_ID || "20", 10)],
-      }),
-    });
-
-    if (!wpResponse.ok) {
-      const wpError = await wpResponse.text();
-      return NextResponse.json(
-        { error: `Erreur WordPress: ${wpError}` },
-        { status: 502 }
-      );
-    }
-
-    const wpPost = await wpResponse.json();
-
-    await supabase
-      .from("articles")
-      .update({
-        status: "publie",
-        wordpress_post_id: wpPost.id,
-        wordpress_url: wpPost.link,
-        published_by: user.id,
-      })
-      .eq("id", articleId);
-
-    return NextResponse.json({
-      postId: wpPost.id,
-      postUrl: wpPost.link,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: `Erreur de connexion WordPress: ${err instanceof Error ? err.message : "Inconnue"}`,
-      },
-      { status: 502 }
-    );
-  }
+  return NextResponse.json({ success: true, articleId });
 }

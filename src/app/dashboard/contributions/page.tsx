@@ -17,18 +17,18 @@ import { RichEditorFull } from "@/components/rich-editor-full";
 import { toast } from "sonner";
 
 interface Author {
-  id: number;
+  id: string;
   name: string;
   avatar_url: string;
 }
 
 interface Contribution {
-  id: number;
+  id: string;
   title: string;
   slug: string;
   content: string;
   status: string;
-  author: number;
+  author: string;
   date: string;
   link: string;
   image: string;
@@ -51,13 +51,13 @@ export default function ContributionsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState<number | null>(null);
+  const [publishing, setPublishing] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -66,14 +66,14 @@ export default function ContributionsPage() {
   const [newAuthorId, setNewAuthorId] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
-  const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [imageStyle, setImageStyle] = useState("");
   // Map: contrib.id -> array of image candidates added during the session
-  const [candidates, setCandidates] = useState<Record<number, ImageCandidate[]>>({});
+  const [candidates, setCandidates] = useState<Record<string, ImageCandidate[]>>({});
   // Map: contrib.id -> selected image_id (null = use existing)
-  const [selectedImage, setSelectedImage] = useState<Record<number, number | null>>({});
+  const [selectedImage, setSelectedImage] = useState<Record<string, number | null>>({});
   // Track which contribs have unsaved image changes
-  const [dirtyImages, setDirtyImages] = useState<Set<number>>(new Set());
+  const [dirtyImages, setDirtyImages] = useState<Set<string>>(new Set());
 
   // Restore session state on mount
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function ContributionsPage() {
     load();
   }, []);
 
-  const getAuthorName = (authorId: number) => {
+  const getAuthorName = (authorId: string) => {
     return authors.find((a) => a.id === authorId)?.name || "Inconnu";
   };
 
@@ -161,7 +161,7 @@ export default function ContributionsPage() {
         body: JSON.stringify({
           title: newTitle,
           content: newContent,
-          author_id: parseInt(newAuthorId, 10),
+          author_id: newAuthorId,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
         }),
@@ -337,7 +337,7 @@ export default function ContributionsPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirtyImages]);
 
-  const handlePublish = async (id: number) => {
+  const handlePublish = async (id: string) => {
     setPublishing(id);
     try {
       const res = await fetch("/api/wordpress/contributions", {

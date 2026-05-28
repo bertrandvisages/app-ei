@@ -17,18 +17,18 @@ import { RichEditorFull } from "@/components/rich-editor-full";
 import { toast } from "sonner";
 
 interface Author {
-  id: number;
+  id: string;
   name: string;
   avatar_url: string;
 }
 
 interface Contribution {
-  id: number;
+  id: string;
   title: string;
   slug: string;
   content: string;
   status: string;
-  author: number;
+  author: string;
   date: string;
   link: string;
   image: string;
@@ -51,20 +51,20 @@ export default function DossiersPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState<number | null>(null);
+  const [publishing, setPublishing] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [generatingIds, setGeneratingIds] = useState<Set<number>>(new Set());
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [imageStyle, setImageStyle] = useState("");
-  const [candidates, setCandidates] = useState<Record<number, ImageCandidate[]>>({});
-  const [selectedImage, setSelectedImage] = useState<Record<number, number | null>>({});
-  const [dirtyImages, setDirtyImages] = useState<Set<number>>(new Set());
+  const [candidates, setCandidates] = useState<Record<string, ImageCandidate[]>>({});
+  const [selectedImage, setSelectedImage] = useState<Record<string, number | null>>({});
+  const [dirtyImages, setDirtyImages] = useState<Set<string>>(new Set());
 
   // Restore session state on mount
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function DossiersPage() {
     load();
   }, []);
 
-  const getAuthorName = (authorId: number) => {
+  const getAuthorName = (authorId: string) => {
     return authors.find((a) => a.id === authorId)?.name || "Inconnu";
   };
 
@@ -153,7 +153,7 @@ export default function DossiersPage() {
         body: JSON.stringify({
           title: newTitle,
           content: newContent,
-          author_id: newAuthorId ? parseInt(newAuthorId, 10) : undefined,
+          author_id: newAuthorId || undefined,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
         }),
@@ -320,7 +320,7 @@ export default function DossiersPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirtyImages]);
 
-  const handlePublish = async (id: number) => {
+  const handlePublish = async (id: string) => {
     setPublishing(id);
     try {
       const res = await fetch("/api/wordpress/dossiers", {
