@@ -697,15 +697,17 @@ export default function DossiersPage() {
                               <Input
                                 value={editSeoTitle}
                                 onChange={(e) => setEditSeoTitle(e.target.value)}
-                                placeholder="Titre optimisé pour le référencement"
+                                placeholder="Titre de 60 caractères max"
+                                maxLength={60}
                               />
+                              <p className="text-[10px] text-muted-foreground text-right">{editSeoTitle.length}/60</p>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Meta description</Label>
                               <Input
                                 value={editSeoDesc}
                                 onChange={(e) => setEditSeoDesc(e.target.value)}
-                                placeholder="Description de 155 caractères max"
+                                placeholder="Description de 160 caractères max"
                                 maxLength={160}
                               />
                               <p className="text-[10px] text-muted-foreground text-right">{editSeoDesc.length}/160</p>
