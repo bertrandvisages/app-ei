@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { toast } from "sonner";
 import type { Profile } from "@/lib/types";
 
@@ -104,6 +105,8 @@ export default function AuteursPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  // Cible courante du dialog de confirmation. null = dialog ferme.
+  const [deleteTarget, setDeleteTarget] = useState<Author | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Author | null>(null);
@@ -232,6 +235,25 @@ export default function AuteursPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
     setSaving(false);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTarget) return;
+    const res = await fetch(
+      `/api/wordpress/authors?id=${encodeURIComponent(deleteTarget.id)}`,
+      { method: "DELETE" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error || "Suppression échouée");
+      return;
+    }
+    setAuthors((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+    if (editingId === deleteTarget.id) {
+      setEditingId(null);
+      setEditData(null);
+    }
+    toast.success("Auteur supprimé");
   };
 
   if (loading) {
@@ -370,12 +392,26 @@ export default function AuteursPage() {
                         </p>
                       )}
                     </div>
-                    <svg
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${editingId === author.id ? "rotate-180" : ""}`}
-                      fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                    <div
+                      className="flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => setDeleteTarget(author)}
+                        title="Supprimer cet auteur"
+                      >
+                        Suppr.
+                      </Button>
+                      <svg
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${editingId === author.id ? "rotate-180" : ""}`}
+                        fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </div>
                   </div>
                   {editingId !== author.id && (
                     <>
@@ -484,6 +520,14 @@ export default function AuteursPage() {
           </Card>
         ))}
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        itemLabel={`l'auteur « ${deleteTarget?.name ?? ""} »`}
+        description="Cette action est irréversible. Si des dossiers ou opinions sont rattachés à cet auteur, leur référence devra être réassignée manuellement."
+        onConfirm={handleDeleteConfirmed}
+      />
     </div>
   );
 }

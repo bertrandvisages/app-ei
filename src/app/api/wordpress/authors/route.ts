@@ -185,7 +185,7 @@ export async function PUT(request: Request) {
   return NextResponse.json(toApiShape(data as AuthorRow));
 }
 
-// DELETE : suppression (admin uniquement)
+// DELETE : suppression (editeur et admin autorises, confirmation cote UI)
 export async function DELETE(request: Request) {
   const supabase = await createClient();
   const {
@@ -193,15 +193,6 @@ export async function DELETE(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

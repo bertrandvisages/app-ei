@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RichEditorFull } from "@/components/rich-editor-full";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { toast } from "sonner";
 
 interface Author {
@@ -59,6 +60,8 @@ export default function DossiersPage() {
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  // Cible courante du dialog de confirmation. null = dialog ferme.
+  const [deleteTarget, setDeleteTarget] = useState<Contribution | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -300,6 +303,22 @@ export default function DossiersPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
     setSaving(false);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTarget) return;
+    const res = await fetch(
+      `/api/wordpress/dossiers?id=${encodeURIComponent(deleteTarget.id)}`,
+      { method: "DELETE" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error || "Suppression échouée");
+      return;
+    }
+    setContributions((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+    if (editingId === deleteTarget.id) setEditingId(null);
+    toast.success("Dossier supprimé");
   };
 
   const handleGenerateImage = (contrib: Contribution) => {
@@ -561,23 +580,34 @@ export default function DossiersPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="sm"
-                        className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                        onClick={() => handlePublish(contrib.id)}
-                        disabled={publishing === contrib.id}
-                        title={
-                          contrib.status === "publish"
-                            ? "Re-déclencher un rebuild du site public"
-                            : "Publier ce dossier"
-                        }
-                      >
-                        {publishing === contrib.id
-                          ? "..."
-                          : contrib.status === "publish"
-                          ? "Republier"
-                          : "Publier"}
-                      </Button>
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                          onClick={() => handlePublish(contrib.id)}
+                          disabled={publishing === contrib.id}
+                          title={
+                            contrib.status === "publish"
+                              ? "Re-déclencher un rebuild du site public"
+                              : "Publier ce dossier"
+                          }
+                        >
+                          {publishing === contrib.id
+                            ? "..."
+                            : contrib.status === "publish"
+                            ? "Republier"
+                            : "Publier"}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setDeleteTarget(contrib)}
+                          title="Supprimer ce dossier"
+                        >
+                          Suppr.
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
 
@@ -731,6 +761,13 @@ export default function DossiersPage() {
           </TableBody>
         </Table>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        itemLabel={`le dossier « ${deleteTarget?.title ?? ""} »`}
+        onConfirm={handleDeleteConfirmed}
+      />
     </div>
   );
 }

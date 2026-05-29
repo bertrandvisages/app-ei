@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RichEditorFull } from "@/components/rich-editor-full";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { toast } from "sonner";
 
 interface Author {
@@ -65,6 +66,8 @@ export default function ContributionsPage() {
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  // Cible courante du dialog de confirmation. null = dialog ferme.
+  const [deleteTarget, setDeleteTarget] = useState<Contribution | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -432,6 +435,22 @@ export default function ContributionsPage() {
     setPublishing(null);
   };
 
+  const handleDeleteConfirmed = async () => {
+    if (!deleteTarget) return;
+    const res = await fetch(
+      `/api/wordpress/contributions?id=${encodeURIComponent(deleteTarget.id)}`,
+      { method: "DELETE" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error || "Suppression échouée");
+      return;
+    }
+    setContributions((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+    if (editingId === deleteTarget.id) setEditingId(null);
+    toast.success("Opinion supprimée");
+  };
+
   const SortArrow = ({ col }: { col: SortKey }) => (
     <svg
       className={`inline-block ml-1 h-3 w-3 transition-transform ${sortKey === col ? "text-foreground" : "text-muted-foreground/40"} ${sortKey === col && sortDir === "desc" ? "rotate-180" : ""}`}
@@ -603,23 +622,34 @@ export default function ContributionsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="sm"
-                        className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
-                        onClick={() => handlePublish(contrib.id)}
-                        disabled={publishing === contrib.id}
-                        title={
-                          contrib.status === "publish"
-                            ? "Re-déclencher un rebuild du site public"
-                            : "Publier cette contribution"
-                        }
-                      >
-                        {publishing === contrib.id
-                          ? "..."
-                          : contrib.status === "publish"
-                          ? "Republier"
-                          : "Publier"}
-                      </Button>
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 bg-[#E35205] hover:bg-[#c44604]"
+                          onClick={() => handlePublish(contrib.id)}
+                          disabled={publishing === contrib.id}
+                          title={
+                            contrib.status === "publish"
+                              ? "Re-déclencher un rebuild du site public"
+                              : "Publier cette contribution"
+                          }
+                        >
+                          {publishing === contrib.id
+                            ? "..."
+                            : contrib.status === "publish"
+                            ? "Republier"
+                            : "Publier"}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setDeleteTarget(contrib)}
+                          title="Supprimer cette opinion"
+                        >
+                          Suppr.
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
 
@@ -814,6 +844,13 @@ export default function ContributionsPage() {
           </TableBody>
         </Table>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        itemLabel={`l'opinion « ${deleteTarget?.title ?? ""} »`}
+        onConfirm={handleDeleteConfirmed}
+      />
     </div>
   );
 }
