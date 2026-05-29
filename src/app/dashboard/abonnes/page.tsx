@@ -257,6 +257,88 @@ export default function AbonnesPage() {
     !!filterRecontacter ||
     !!filterSource;
 
+  // Export CSV des lignes courantes (post-filtres + post-tri, comme affiche).
+  // - Separateur point-virgule pour compatibilite Excel FR (qui interprete
+  //   la virgule comme decimale)
+  // - BOM UTF-8 en tete pour qu'Excel detecte les accents
+  // - Booleens en "Oui"/"Non" et date au format FR pour lisibilite directe
+  const exportCsv = () => {
+    const headers = [
+      "Source",
+      "Inscrit le",
+      "Prénom",
+      "Nom",
+      "Email",
+      "Type",
+      "Type investisseur",
+      "Société",
+      "Département",
+      "Newsletter",
+      "Recontacter",
+      "CGU acceptées",
+    ];
+    const escape = (v: string | number | boolean | null | undefined): string => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      // RFC 4180 : si contient separateur, guillemet ou saut de ligne → encadrer
+      // de guillemets et doubler les guillemets internes.
+      if (/[";\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const yesNo = (b: boolean) => (b ? "Oui" : "Non");
+    const fmtDate = (d: string | null) => {
+      if (!d) return "";
+      try {
+        return new Date(d).toLocaleString("fr-FR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch {
+        return d;
+      }
+    };
+
+    const lines = [headers.map(escape).join(";")];
+    for (const r of sorted) {
+      lines.push(
+        [
+          r.source === "wp" ? "WordPress" : "Inscription",
+          fmtDate(r.registered_at),
+          r.first_name ?? "",
+          r.last_name ?? "",
+          r.email,
+          r.user_type ?? "",
+          r.investisseur_type ?? "",
+          r.societe ?? "",
+          r.departement ?? "",
+          yesNo(r.newsletter),
+          yesNo(r.recontacter),
+          yesNo(r.cgu),
+        ]
+          .map(escape)
+          .join(";")
+      );
+    }
+
+    // ﻿ = BOM UTF-8 pour qu'Excel ouvre en UTF-8 et affiche les accents
+    const csv = "﻿" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().slice(0, 10);
+    const suffix = hasActiveFilter ? "-filtres" : "";
+    a.href = url;
+    a.download = `abonnes-${ts}${suffix}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`${sorted.length} ligne${sorted.length > 1 ? "s" : ""} exportées`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -284,13 +366,30 @@ export default function AbonnesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Abonnés</h1>
           <p className="text-muted-foreground">
             {sorted.length} sur {rows.length} inscrits
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={exportCsv}
+          disabled={sorted.length === 0}
+          title={
+            hasActiveFilter
+              ? "Exporter les abonnés correspondant aux filtres actifs"
+              : "Exporter tous les abonnés"
+          }
+        >
+          Exporter CSV
+          {hasActiveFilter && (
+            <span className="ml-1.5 text-[10px] text-muted-foreground">
+              ({sorted.length})
+            </span>
+          )}
+        </Button>
       </div>
 
       {/* ─── Filtres ─── */}
