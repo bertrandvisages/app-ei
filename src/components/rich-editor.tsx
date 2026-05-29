@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import { useEffect } from "react";
+import { useEffect, useReducer } from "react";
 
 interface RichEditorProps {
   content: string;
@@ -36,6 +36,20 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
       editor.commands.setContent(content);
     }
   }, [content, editor]);
+
+  // Force le re-render de la toolbar quand le curseur bouge — sinon
+  // editor.isActive("bold"|"link"|...) ne reflete pas l'etat reel.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => forceUpdate();
+    editor.on("selectionUpdate", handler);
+    editor.on("transaction", handler);
+    return () => {
+      editor.off("selectionUpdate", handler);
+      editor.off("transaction", handler);
+    };
+  }, [editor]);
 
   if (!editor) return null;
 

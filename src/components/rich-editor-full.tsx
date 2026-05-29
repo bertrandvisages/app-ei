@@ -7,7 +7,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import Heading from "@tiptap/extension-heading";
 
 function cleanHtmlForTiptap(html: string): string {
@@ -109,6 +109,24 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
       }
     }
   }, [content, editor]);
+
+  // Tiptap ne previent pas React quand la selection bouge dans l'editeur.
+  // Sans ce hook, editor.isActive("heading", { level: 2 }) renvoie une
+  // valeur fige et les boutons de la toolbar ne se mettent jamais a jour
+  // selon le curseur (H2 reste eteint quand on clique dans un H2, etc.).
+  // On force un re-render a chaque selectionUpdate / transaction.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    if (!editor) return;
+    const onSelectionUpdate = () => forceUpdate();
+    const onTransaction = () => forceUpdate();
+    editor.on("selectionUpdate", onSelectionUpdate);
+    editor.on("transaction", onTransaction);
+    return () => {
+      editor.off("selectionUpdate", onSelectionUpdate);
+      editor.off("transaction", onTransaction);
+    };
+  }, [editor]);
 
   if (!editor) return null;
 
