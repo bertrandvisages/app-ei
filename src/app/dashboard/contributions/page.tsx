@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -236,6 +236,64 @@ export default function ContributionsPage() {
       setImageStyle("");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+    }
+  };
+
+  // Upload depuis le disque : limite 5 MB cote client. L'API
+  // /api/wordpress/upload convertit automatiquement en AVIF via le helper
+  // toAvif (meme pipeline que les PNG Gemini).
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+
+  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+  const handlePickFile = () => {
+    if (!editingId) return;
+    if ((genCandidates[editingId]?.length || 0) >= 3) {
+      toast.error("Limite de 3 images atteinte. Supprime-en une dans les vignettes pour pouvoir en ajouter.");
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !editingId) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Le fichier doit être une image");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(`Fichier trop lourd (${(file.size / 1024 / 1024).toFixed(1)} MB). Limite : 5 MB.`);
+      return;
+    }
+
+    const id = editingId;
+    setUploadingIds((prev) => new Set(prev).add(id));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "contributions/uploaded");
+      const res = await fetch("/api/wordpress/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload échoué");
+
+      setGenCandidates((prev) => ({
+        ...prev,
+        [id]: [data.url, ...(prev[id] || [])].slice(0, 3),
+      }));
+      setEditCoverUrl(data.url);
+      toast.success("Image uploadée (convertie en AVIF)");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload échoué");
+    } finally {
+      setUploadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -746,6 +804,42 @@ export default function ContributionsPage() {
                               </p>
                             )}
                           </div>
+
+                          {/* Upload depuis le disque */}
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Ou uploader une image depuis le disque
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleUploadCover}
+                                className="hidden"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-9"
+                                onClick={handlePickFile}
+                                disabled={
+                                  uploadingIds.has(contrib.id) ||
+                                  (genCandidates[contrib.id]?.length || 0) >= 3
+                                }
+                              >
+                                {uploadingIds.has(contrib.id)
+                                  ? "Upload…"
+                                  : (genCandidates[contrib.id]?.length || 0) >= 3
+                                  ? "Limite atteinte"
+                                  : "Choisir une image"}
+                              </Button>
+                              <p className="text-[11px] text-muted-foreground">
+                                JPG, PNG, WebP… 5 MB max. Convertie automatiquement en AVIF.
+                              </p>
+                            </div>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label className="text-xs font-medium text-muted-foreground">Auteur</Label>

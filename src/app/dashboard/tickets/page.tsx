@@ -193,7 +193,7 @@ export default function TicketsPage() {
               <Textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Décris précisément ce qu'il faut modifier : page, texte exact, comportement attendu, capture si utile."
+                placeholder="Décris précisément ce qu'il faut modifier : page, texte exact, comportement attendu."
                 rows={6}
                 maxLength={10000}
               />
