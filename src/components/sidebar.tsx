@@ -12,6 +12,7 @@ const navigation = [
   { name: "Opinions", href: "/dashboard/contributions", icon: FileTextIcon },
   { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
   { name: "Messages", href: "/dashboard/messages", icon: MailIcon },
+  { name: "Tickets", href: "/dashboard/tickets", icon: TicketIcon },
   { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
 ];
 
@@ -21,9 +22,10 @@ const adminNavigation = [
 
 export function Sidebar({ profile }: { profile: Profile }) {
   const pathname = usePathname();
-  // Badge "non lus" sur l'entree Messages. Refetch a chaque navigation et
-  // toutes les 60s pour rester ~frais sans saturer l'API.
+  // Badges Messages (non lus) et Tickets (non traites). Refetch a chaque
+  // navigation et toutes les 60s pour rester ~frais sans saturer l'API.
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
+  const [openTickets, setOpenTickets] = useState<number>(0);
 
   useEffect(() => {
     const load = () => {
@@ -31,11 +33,21 @@ export function Sidebar({ profile }: { profile: Profile }) {
         .then((r) => (r.ok ? r.json() : { unread: 0 }))
         .then((data: { unread?: number }) => setUnreadMessages(data.unread ?? 0))
         .catch(() => {});
+      fetch("/api/tickets?count=open")
+        .then((r) => (r.ok ? r.json() : { open: 0 }))
+        .then((data: { open?: number }) => setOpenTickets(data.open ?? 0))
+        .catch(() => {});
     };
     load();
     const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, [pathname]);
+
+  const badgeFor = (name: string): number | null => {
+    if (name === "Messages") return unreadMessages || null;
+    if (name === "Tickets") return openTickets || null;
+    return null;
+  };
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col bg-[#101820] text-white">
@@ -70,16 +82,20 @@ export function Sidebar({ profile }: { profile: Profile }) {
                 <item.icon className="h-4 w-4" />
                 {item.name}
               </span>
-              {item.name === "Messages" && unreadMessages > 0 && (
-                <span
-                  className={cn(
-                    "min-w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5",
-                    isActive ? "bg-white text-[#E35205]" : "bg-[#E35205] text-white"
-                  )}
-                >
-                  {unreadMessages > 99 ? "99+" : unreadMessages}
-                </span>
-              )}
+              {(() => {
+                const count = badgeFor(item.name);
+                if (count === null) return null;
+                return (
+                  <span
+                    className={cn(
+                      "min-w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5",
+                      isActive ? "bg-white text-[#E35205]" : "bg-[#E35205] text-white"
+                    )}
+                  >
+                    {count > 99 ? "99+" : count}
+                  </span>
+                );
+              })()}
             </Link>
           );
         })}
@@ -173,6 +189,14 @@ function MailIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+    </svg>
+  );
+}
+
+function TicketIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z" />
     </svg>
   );
 }
