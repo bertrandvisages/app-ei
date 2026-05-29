@@ -293,18 +293,24 @@ export default function DemandesPage() {
                               </p>
                               <ul className="space-y-1.5">
                                 {m.attachments.map((a, i) => (
-                                  <li key={i}>
+                                  <li key={i} className="flex items-center gap-2 text-sm">
+                                    <a
+                                      href={`/api/contribution-requests/attachment?id=${encodeURIComponent(m.id)}&index=${i}`}
+                                      className="text-[#E35205] hover:underline"
+                                    >
+                                      ⬇ {a.name}
+                                    </a>
                                     <a
                                       href={a.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-[#E35205] hover:underline text-sm"
+                                      className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                                      title="Ouvrir dans un nouvel onglet"
                                     >
-                                      {a.name}
+                                      (aperçu)
                                     </a>
-                                    <span className="text-xs text-muted-foreground ml-2">
-                                      ({(a.size_bytes / 1024).toFixed(0)} KB ·{" "}
-                                      {a.content_type})
+                                    <span className="text-xs text-muted-foreground">
+                                      · {(a.size_bytes / 1024).toFixed(0)} KB
                                     </span>
                                   </li>
                                 ))}
