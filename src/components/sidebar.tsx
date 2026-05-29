@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +11,7 @@ const navigation = [
   { name: "Dossiers", href: "/dashboard/dossiers", icon: FolderIcon },
   { name: "Opinions", href: "/dashboard/contributions", icon: FileTextIcon },
   { name: "Auteurs", href: "/dashboard/auteurs", icon: PenIcon },
+  { name: "Messages", href: "/dashboard/messages", icon: MailIcon },
   { name: "Abonnés", href: "/dashboard/abonnes", icon: UsersIcon },
 ];
 
@@ -19,6 +21,21 @@ const adminNavigation = [
 
 export function Sidebar({ profile }: { profile: Profile }) {
   const pathname = usePathname();
+  // Badge "non lus" sur l'entree Messages. Refetch a chaque navigation et
+  // toutes les 60s pour rester ~frais sans saturer l'API.
+  const [unreadMessages, setUnreadMessages] = useState<number>(0);
+
+  useEffect(() => {
+    const load = () => {
+      fetch("/api/messages?count=unread")
+        .then((r) => (r.ok ? r.json() : { unread: 0 }))
+        .then((data: { unread?: number }) => setUnreadMessages(data.unread ?? 0))
+        .catch(() => {});
+    };
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col bg-[#101820] text-white">
@@ -43,14 +60,26 @@ export function Sidebar({ profile }: { profile: Profile }) {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-[#E35205] text-white"
                   : "text-gray-400 hover:bg-white/10 hover:text-white"
               )}
             >
-              <item.icon className="h-4 w-4" />
-              {item.name}
+              <span className="flex items-center gap-3">
+                <item.icon className="h-4 w-4" />
+                {item.name}
+              </span>
+              {item.name === "Messages" && unreadMessages > 0 && (
+                <span
+                  className={cn(
+                    "min-w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5",
+                    isActive ? "bg-white text-[#E35205]" : "bg-[#E35205] text-white"
+                  )}
+                >
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -136,6 +165,14 @@ function UsersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+    </svg>
+  );
+}
+
+function MailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
     </svg>
   );
 }

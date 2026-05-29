@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 // Endpoint POST appele depuis le formulaire /nous-contacter du site Astro.
 // Envoie un email a contact@lenoncote.fr via SMTP Hostinger.
@@ -112,7 +113,29 @@ export async function POST(request: Request) {
     );
   }
 
-  // 5) Envoi via nodemailer
+  // 5) Stockage en DB (best-effort : si l'INSERT echoue, on log et on
+  //    continue vers l'envoi email — la confirmation visiteur reste prio).
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (SUPABASE_URL && SERVICE_ROLE_KEY) {
+    try {
+      const admin = createAdminClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+        auth: { persistSession: false },
+      });
+      const { error: dbErr } = await admin
+        .from("contact_messages")
+        .insert({ first_name, last_name, email, message });
+      if (dbErr) {
+        console.warn("[contact] INSERT contact_messages a echoue :", dbErr.message);
+      }
+    } catch (err) {
+      console.warn("[contact] Exception lors de l'INSERT contact_messages :", err);
+    }
+  } else {
+    console.warn("[contact] SUPABASE_URL ou SERVICE_ROLE_KEY manquant — message non stocke en DB");
+  }
+
+  // 6) Envoi via nodemailer
   const transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
