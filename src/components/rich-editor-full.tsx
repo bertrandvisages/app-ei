@@ -216,7 +216,7 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
 
   return (
     <div className="rounded-md border bg-background">
-      <div className="flex gap-1 border-b px-2 py-1.5 flex-wrap">
+      <div className="sticky top-0 z-20 flex gap-1 border-b px-2 py-1.5 flex-wrap bg-background rounded-t-md">
         <button
           type="button"
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setParagraph().run(); }}
