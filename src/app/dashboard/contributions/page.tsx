@@ -874,7 +874,14 @@ export default function ContributionsPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2 md:col-span-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
+                              <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                              />
+                            </div>
                             <div className="space-y-2">
                               <Label className="text-xs font-medium text-muted-foreground">Auteur</Label>
                               <select
@@ -889,13 +896,6 @@ export default function ContributionsPage() {
                                   </option>
                                 ))}
                               </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
-                              <Input
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                              />
                             </div>
                           </div>
                           <div className="space-y-2">
