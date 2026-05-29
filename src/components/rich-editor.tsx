@@ -12,6 +12,9 @@ interface RichEditorProps {
 
 export function RichEditor({ content, onChange }: RichEditorProps) {
   const editor = useEditor({
+    // immediatelyRender:false : evite le crash de hydratation Next.js App
+    // Router (cf. rich-editor-full.tsx pour le contexte complet).
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: false,
@@ -70,7 +73,7 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
 
   return (
     <div className="rounded-md border bg-background">
-      <div className="flex gap-1 border-b px-2 py-1.5">
+      <div className="sticky top-0 z-20 flex gap-1 border-b px-2 py-1.5 bg-background rounded-t-md">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}

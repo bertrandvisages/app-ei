@@ -7,7 +7,8 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { useEffect, useReducer, useState } from "react";
+import Image from "@tiptap/extension-image";
+import { useEffect, useReducer, useRef, useState } from "react";
 import Heading from "@tiptap/extension-heading";
 
 function cleanHtmlForTiptap(html: string): string {
@@ -34,12 +35,21 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   const [hasFocus, setHasFocus] = useState(false);
 
   const editor = useEditor({
+    // immediatelyRender:false est OBLIGATOIRE avec Tiptap v3 + Next.js App
+    // Router. Sans ça, l'editeur essaie de rendre cote serveur, hydrate
+    // differemment cote client et CRASH la page ("This page couldn't load")
+    // — bug observe quand on ajoute une nouvelle extension comme Image.
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: false,
         codeBlock: false,
         code: false,
         horizontalRule: false,
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
       }),
       Heading.configure({ levels: [2, 3, 4] }).extend({
         addAttributes() {
@@ -148,6 +158,54 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
     editor.chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   };
 
+  // Upload image dans le body : meme pipeline que les covers
+  // (/api/wordpress/upload → toAvif → Supabase Storage). On insere l'image
+  // au curseur via Tiptap.setImage.
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+  const triggerImagePicker = () => imageInputRef.current?.click();
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      window.alert("Le fichier doit être une image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      window.alert(
+        `Fichier trop lourd (${(file.size / 1024 / 1024).toFixed(1)} MB). Limite : 5 MB.`
+      );
+      return;
+    }
+
+    const alt = window.prompt(
+      "Texte alternatif (description courte de l'image, important pour le SEO et l'accessibilité) :",
+      ""
+    );
+    if (alt === null) return; // annule
+
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "body/inline");
+      const res = await fetch("/api/wordpress/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload échoué");
+
+      editor.chain().focus().setImage({ src: data.url, alt: alt.trim() }).run();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Upload échoué");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   // Only show active state when editor has focus
   const isActive = (name: string, attrs?: Record<string, unknown>) =>
     hasFocus && editor.isActive(name, attrs);
@@ -161,7 +219,7 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
 
   return (
     <div className="rounded-md border bg-background">
-      <div className="flex gap-1 border-b px-2 py-1.5 flex-wrap">
+      <div className="sticky top-0 z-20 flex gap-1 border-b px-2 py-1.5 flex-wrap bg-background rounded-t-md">
         <button
           type="button"
           onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setParagraph().run(); }}
@@ -246,6 +304,22 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
           Citation
         </button>
         <div className="w-px bg-border mx-1" />
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); triggerImagePicker(); }}
+          className={btnBase}
+          disabled={uploadingImage}
+          title="Insérer une image dans le texte (5 MB max, convertie en AVIF)"
+        >
+          {uploadingImage ? "Upload…" : "Image"}
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
         <button
           type="button"
           onMouseDown={(e) => { e.preventDefault(); addTable(); }}
@@ -360,6 +434,17 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
           text-decoration: underline !important;
           text-underline-offset: 2px;
           cursor: text;
+        }
+        .tiptap img {
+          display: block;
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 1.25em 0;
+        }
+        .tiptap img.ProseMirror-selectednode {
+          outline: 3px solid #E35205;
+          outline-offset: 2px;
         }
       `}</style>
       <EditorContent
