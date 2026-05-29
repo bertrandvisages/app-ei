@@ -56,6 +56,7 @@ export default function DossiersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editAuthorId, setEditAuthorId] = useState<string>("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [saving, setSaving] = useState(false);
@@ -191,6 +192,7 @@ export default function DossiersPage() {
       setEditingId(contrib.id);
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
+      setEditAuthorId(contrib.author || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
       // Cover actuelle
@@ -260,6 +262,7 @@ export default function DossiersPage() {
           id: editingId,
           title: editTitle,
           content: editContent,
+          author_id: editAuthorId || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
@@ -276,6 +279,7 @@ export default function DossiersPage() {
               ...c,
               title: editTitle,
               content: editContent,
+              author: editAuthorId,
               // Si l'item était déjà publié, l'édition le marque comme modifié
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
@@ -706,12 +710,29 @@ export default function DossiersPage() {
                                 : "Le titre et le contenu du dossier servent à composer automatiquement le prompt avec le style choisi."}
                             </p>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
-                            <Input
-                              value={editTitle}
-                              onChange={(e) => setEditTitle(e.target.value)}
-                            />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2 md:col-span-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Titre</Label>
+                              <Input
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Auteur</Label>
+                              <select
+                                value={editAuthorId}
+                                onChange={(e) => setEditAuthorId(e.target.value)}
+                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              >
+                                <option value="">— Aucun —</option>
+                                {authors.map((a) => (
+                                  <option key={a.id} value={a.id.toString()}>
+                                    {a.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium text-muted-foreground">Contenu</Label>
