@@ -145,17 +145,32 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3) Fichiers
+  // 3) Fichiers — on filtre les entrees vides (browser injecte parfois un
+  // File de size 0 quand input multiple est vide).
   const rawFiles = form.getAll("files");
-  const files: File[] = rawFiles.filter((f): f is File => f instanceof File);
+  const files: File[] = rawFiles
+    .filter((f): f is File => f instanceof File)
+    .filter((f) => f.size > 0);
+
+  console.log(
+    `[contribution-requests] Reception : ${first_name} ${last_name} <${email}>, ${files.length} fichier(s)`
+  );
+  for (const f of files) {
+    console.log(`  - ${f.name} (${f.type || "no-mime"}, ${f.size} bytes)`);
+  }
+
   if (files.length > MAX_FILES) {
     return NextResponse.json(
       { error: `${MAX_FILES} fichiers maximum.` },
       { status: 400, headers: cors }
     );
   }
+
+  // Validation MIME + taille. Si MIME inconnu/vide, on accepte tant que
+  // l'extension est dans une whitelist (sauve les cas Windows ou navigateurs
+  // qui n'envoient pas le bon Content-Type).
+  const ALLOWED_EXT = /\.(png|jpe?g|webp|avif|heic|heif|gif|pdf|docx?|odt|rtf|txt)$/i;
   for (const f of files) {
-    if (f.size === 0) continue;
     if (f.size > MAX_FILE_BYTES) {
       return NextResponse.json(
         {
@@ -164,10 +179,12 @@ export async function POST(request: Request) {
         { status: 400, headers: cors }
       );
     }
-    if (!ALLOWED_MIME.has(f.type)) {
+    const mimeOk = f.type && ALLOWED_MIME.has(f.type);
+    const extOk = ALLOWED_EXT.test(f.name);
+    if (!mimeOk && !extOk) {
       return NextResponse.json(
         {
-          error: `Type de fichier non autorisé pour « ${f.name} » (${f.type || "inconnu"}). Acceptés : images, PDF, Word, ODT, RTF.`,
+          error: `Type de fichier non autorisé pour « ${f.name} » (${f.type || "type inconnu"}). Acceptés : images, PDF, Word, ODT, RTF, TXT.`,
         },
         { status: 400, headers: cors }
       );
@@ -178,42 +195,63 @@ export async function POST(request: Request) {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const attachments: Attachment[] = [];
-  if (SUPABASE_URL && SERVICE_ROLE_KEY && files.length > 0) {
-    try {
-      const admin = createAdminClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-        auth: { persistSession: false },
-      });
-      const ts = Date.now();
-      const folder = `contributions_requests/${ts}`;
-      for (const f of files) {
-        if (f.size === 0) continue;
-        const buf = Buffer.from(await f.arrayBuffer());
-        const path = `${folder}/${safeFilename(f.name)}`;
-        const { error: upErr } = await admin.storage
-          .from("media")
-          .upload(path, buf, {
-            contentType: f.type,
-            upsert: false,
-          });
-        if (upErr) {
-          console.warn("[contribution-requests] Upload echoue :", upErr.message);
-          continue;
-        }
-        const { data: pub } = admin.storage.from("media").getPublicUrl(path);
-        attachments.push({
-          name: f.name,
-          url: pub.publicUrl,
-          content_type: f.type,
-          size_bytes: f.size,
+  const uploadWarnings: string[] = [];
+
+  if (files.length > 0) {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      console.error(
+        "[contribution-requests] SUPABASE_URL/SERVICE_ROLE_KEY manquant cote env — fichiers IGNORES"
+      );
+      uploadWarnings.push(
+        "Configuration serveur incomplète : pièces jointes non sauvegardées."
+      );
+    } else {
+      try {
+        const admin = createAdminClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+          auth: { persistSession: false },
         });
+        const ts = Date.now();
+        const folder = `contributions_requests/${ts}`;
+        for (const f of files) {
+          const buf = Buffer.from(await f.arrayBuffer());
+          const path = `${folder}/${safeFilename(f.name)}`;
+          const contentType = f.type || "application/octet-stream";
+          const { error: upErr } = await admin.storage
+            .from("media")
+            .upload(path, buf, {
+              contentType,
+              upsert: false,
+            });
+          if (upErr) {
+            console.error(
+              `[contribution-requests] Upload Storage echoue (${path}) :`,
+              upErr.message
+            );
+            uploadWarnings.push(
+              `Fichier « ${f.name} » non sauvegardé : ${upErr.message}`
+            );
+            continue;
+          }
+          const { data: pub } = admin.storage.from("media").getPublicUrl(path);
+          attachments.push({
+            name: f.name,
+            url: pub.publicUrl,
+            content_type: contentType,
+            size_bytes: f.size,
+          });
+          console.log(
+            `[contribution-requests] Upload OK : ${path} (${pub.publicUrl})`
+          );
+        }
+      } catch (err) {
+        console.error("[contribution-requests] Exception upload :", err);
+        uploadWarnings.push(
+          `Erreur lors de l'enregistrement des pièces jointes : ${
+            err instanceof Error ? err.message : "inconnue"
+          }`
+        );
       }
-    } catch (err) {
-      console.warn("[contribution-requests] Exception upload :", err);
     }
-  } else if (files.length > 0) {
-    console.warn(
-      "[contribution-requests] SUPABASE_URL/SERVICE_ROLE_KEY manquant — fichiers ignorés"
-    );
   }
 
   // 5) INSERT en DB (best-effort, ne bloque pas l'envoi email)
@@ -259,7 +297,10 @@ export async function POST(request: Request) {
     attachments,
   });
 
-  return NextResponse.json({ success: true }, { headers: cors });
+  return NextResponse.json(
+    { success: true, attachments_saved: attachments.length, warnings: uploadWarnings },
+    { headers: cors }
+  );
 }
 
 async function sendNotificationEmail(payload: {
