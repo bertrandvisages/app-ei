@@ -113,10 +113,17 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   if (!editor) return null;
 
   const addLink = () => {
-    const url = window.prompt("URL du lien :");
-    if (url) {
-      editor.chain().extendMarkRange("link").setLink({ href: url }).run();
+    // Pre-rempli avec l'URL actuelle si on est deja sur un lien, sinon vide.
+    // Permet d'editer un lien existant sans avoir a tout retaper.
+    const currentUrl =
+      (editor.getAttributes("link").href as string | undefined) ?? "";
+    const url = window.prompt("URL du lien :", currentUrl);
+    if (url === null) return; // annule
+    if (url === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
     }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
   const addTable = () => {
@@ -331,8 +338,10 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
           color: #6b7280;
         }
         .tiptap a {
-          color: #E35205;
-          text-decoration: underline;
+          color: #E35205 !important;
+          text-decoration: underline !important;
+          text-underline-offset: 2px;
+          cursor: text;
         }
       `}</style>
       <EditorContent

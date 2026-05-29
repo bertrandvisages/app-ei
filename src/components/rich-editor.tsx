@@ -40,10 +40,18 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
   if (!editor) return null;
 
   const addLink = () => {
-    const url = window.prompt("URL du lien :");
-    if (url) {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    // Pre-rempli avec l'URL actuelle si on est deja sur un lien, sinon vide.
+    // Permet d'editer un lien existant sans avoir a tout retaper.
+    const currentUrl =
+      (editor.getAttributes("link").href as string | undefined) ?? "";
+    const url = window.prompt("URL du lien :", currentUrl);
+    if (url === null) return; // annule
+    if (url === "") {
+      // L'editeur a vide le champ : on retire le lien
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
     }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
   return (
@@ -79,13 +87,23 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
         {editor.isActive("link") && (
           <button
             type="button"
-            onClick={() => editor.chain().focus().unsetLink().run()}
+            onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
             className="px-2 py-1 rounded text-xs hover:bg-muted text-destructive"
           >
             Suppr. lien
           </button>
         )}
       </div>
+      {/* Style explicite des liens : le reset `prose` Tailwind ne suffit pas
+          toujours pour faire ressortir un lien en cours d'edition. */}
+      <style>{`
+        .tiptap a {
+          color: #E35205;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          cursor: text;
+        }
+      `}</style>
       <EditorContent
         editor={editor}
         className="prose prose-sm max-w-none px-3 py-2 min-h-[120px] focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:min-h-[100px] text-sm"
