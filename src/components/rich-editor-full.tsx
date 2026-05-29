@@ -138,7 +138,16 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
     };
   }, [editor]);
 
+  // ⚠ Tous les hooks (useState/useRef/useEffect/useReducer) DOIVENT etre
+  // declares au-dessus du early return ci-dessous, sinon React leve l'erreur
+  // #310 (rendered fewer/more hooks than expected) car le premier render
+  // (editor undefined → return null) skipperait les hooks suivants.
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   if (!editor) return null;
+
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
   const addLink = () => {
     // Pre-rempli avec l'URL actuelle si on est deja sur un lien, sinon vide.
@@ -161,10 +170,8 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   // Upload image dans le body : meme pipeline que les covers
   // (/api/wordpress/upload → toAvif → Supabase Storage). On insere l'image
   // au curseur via Tiptap.setImage.
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
+  // (imageInputRef + uploadingImage declares plus haut pour respecter
+  // l'ordre des hooks)
   const triggerImagePicker = () => imageInputRef.current?.click();
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
