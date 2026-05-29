@@ -72,7 +72,7 @@ export function RichEditor({ content, onChange }: RichEditorProps) {
   };
 
   return (
-    <div className="rounded-md border bg-background">
+    <div className="rounded-md border bg-background max-h-[60vh] overflow-y-auto">
       <div className="sticky top-0 z-20 flex gap-1 border-b px-2 py-1.5 bg-background rounded-t-md">
         <button
           type="button"

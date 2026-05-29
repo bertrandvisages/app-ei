@@ -224,8 +224,12 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
 
   const btnBase = "px-2 py-1 rounded text-xs hover:bg-muted text-foreground";
 
+  // max-height + overflow-y:auto sur le wrapper = scope du sticky. La
+  // toolbar sticky plus bas se cale en haut de ce conteneur quand l'editeur
+  // scrolle son contenu. Sans ce wrapper scrollable, la Table englobante
+  // a overflow-x:auto qui empechait le sticky de se declencher.
   return (
-    <div className="rounded-md border bg-background">
+    <div className="rounded-md border bg-background max-h-[70vh] overflow-y-auto">
       <div className="sticky top-0 z-20 flex gap-1 border-b px-2 py-1.5 flex-wrap bg-background rounded-t-md">
         <button
           type="button"
