@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/slug";
 import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
 import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
+import { decodeEntities } from "@/lib/utils";
 
 type DossierRow = {
   id: string;
@@ -34,7 +35,7 @@ function isModifiedSincePublish(d: DossierRow): boolean {
 function toApiShape(d: DossierRow) {
   return {
     id: d.id,
-    title: d.title,
+    title: decodeEntities(d.title),
     content: d.description ?? "",
     status: d.status === "publie" ? "publish" : d.status,
     is_modified: isModifiedSincePublish(d),

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/slug";
 import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
 import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
+import { decodeEntities } from "@/lib/utils";
 
 type ContribRow = {
   id: string;
@@ -36,7 +37,7 @@ function isModifiedSincePublish(c: ContribRow): boolean {
 function toApiShape(c: ContribRow) {
   return {
     id: c.id,
-    title: c.title,
+    title: decodeEntities(c.title),
     content: c.content ?? "",
     citation: c.citation ?? "",
     status: c.status === "publie" ? "publish" : c.status, // map publié vers vocabulaire WP du front
