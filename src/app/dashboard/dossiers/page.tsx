@@ -105,6 +105,25 @@ export default function DossiersPage() {
     } catch {}
   }, [dirtyImages]);
 
+  // Persistance des 3 vignettes (genCandidates) sur la session — pour qu'on
+  // retrouve l'historique de generations / uploads en quittant puis en
+  // revenant sur un dossier dans le meme onglet.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("dossiers_gen_candidates");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") setGenCandidates(parsed);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dossiers_gen_candidates", JSON.stringify(genCandidates));
+    } catch {}
+  }, [genCandidates]);
+
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newAuthorId, setNewAuthorId] = useState<string>("");
@@ -197,12 +216,27 @@ export default function DossiersPage() {
       setEditSeoDesc(contrib.seo_description || "");
       // Cover actuelle
       setEditCoverUrl(contrib.image || "");
-      // Seed les vignettes avec la cover existante : on a 3 slots au total,
-      // donc une cover déjà en base = 1 slot utilisé + 2 générations possibles.
-      setGenCandidates((prev) => ({
-        ...prev,
-        [contrib.id]: contrib.image ? [contrib.image] : [],
-      }));
+      // Seed les vignettes :
+      // - si on a deja des candidates en session (qu'on a generes/uploades
+      //   precedemment sans sauvegarder), on les garde et on s'assure que la
+      //   cover actuelle est presente dans la liste
+      // - si la session est vide pour cet item, on init avec [cover] ou []
+      setGenCandidates((prev) => {
+        const existing = prev[contrib.id] || [];
+        if (existing.length > 0) {
+          if (contrib.image && !existing.includes(contrib.image)) {
+            return {
+              ...prev,
+              [contrib.id]: [contrib.image, ...existing].slice(0, 3),
+            };
+          }
+          return prev;
+        }
+        return {
+          ...prev,
+          [contrib.id]: contrib.image ? [contrib.image] : [],
+        };
+      });
       // Reset prompt et style
       setEditPrompt("");
       setImageStyle("");
