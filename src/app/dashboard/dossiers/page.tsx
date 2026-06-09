@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { RichEditorFull } from "@/components/rich-editor-full";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { PENDING_DEPLOY_EVENT } from "@/components/header";
 import { toast } from "sonner";
 
 interface Author {
@@ -495,11 +496,12 @@ export default function DossiersPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      toast.success("Publié sur le site");
+      toast.success("Marqué comme publié — clique « Mettre à jour le site » pour diffuser");
       // Republish remet le flag is_modified à false (synchro updated_at/published_at)
       setContributions(contributions.map((c) =>
         c.id === id ? { ...c, status: "publish", is_modified: false } : c
       ));
+      window.dispatchEvent(new Event(PENDING_DEPLOY_EVENT));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
@@ -684,8 +686,8 @@ export default function DossiersPage() {
                           disabled={publishing === contrib.id}
                           title={
                             contrib.status === "publish"
-                              ? "Re-déclencher un rebuild du site public"
-                              : "Publier ce dossier"
+                              ? "Marquer comme republié (la diffusion se fait via « Mettre à jour le site »)"
+                              : "Marquer comme publié (la diffusion se fait via « Mettre à jour le site »)"
                           }
                         >
                           {publishing === contrib.id

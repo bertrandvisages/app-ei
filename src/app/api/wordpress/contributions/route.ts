@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/slug";
-import { triggerLenoncoteRebuild } from "@/lib/trigger-deploy";
 import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
 import { decodeEntities } from "@/lib/utils";
 
@@ -172,14 +171,12 @@ export async function PUT(request: Request) {
     updatePayload.seo_title = body.seo_title || null;
   if (body.seo_description !== undefined)
     updatePayload.seo_description = body.seo_description || null;
-  let willBePublished = false;
   if (body.status !== undefined) {
     // Map: front peut envoyer 'publish' (vocab WP) → on stocke 'publie'
     const s = body.status === "publish" ? "publie" : body.status;
     updatePayload.status = s;
     if (s === "publie") {
       updatePayload.published_at = new Date().toISOString();
-      willBePublished = true;
     }
   }
 
@@ -200,9 +197,8 @@ export async function PUT(request: Request) {
     await deleteStorageObjectByPublicUrl(supabase, previousCoverUrl);
   }
 
-  if (willBePublished) {
-    triggerLenoncoteRebuild();
-  }
+  // Rebuild Astro déclenché manuellement via le bouton "Mettre à jour le site"
+  // (route /api/wordpress/deploy), pour permettre de batcher plusieurs publications.
 
   return NextResponse.json({ success: true });
 }

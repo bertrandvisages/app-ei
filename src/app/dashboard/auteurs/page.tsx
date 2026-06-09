@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { PENDING_DEPLOY_EVENT } from "@/components/header";
 import { toast } from "sonner";
 import type { Profile } from "@/lib/types";
 
@@ -170,6 +171,7 @@ export default function AuteursPage() {
       setNewImageUrl("");
       const res2 = await fetch("/api/wordpress/authors");
       if (res2.ok) setAuthors(await res2.json());
+      window.dispatchEvent(new Event(PENDING_DEPLOY_EVENT));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
@@ -231,6 +233,7 @@ export default function AuteursPage() {
       setAuthors(authors.map((a) => a.id === editData.id ? updatedAuthor : a));
       setEditingId(null);
       setEditData(null);
+      window.dispatchEvent(new Event(PENDING_DEPLOY_EVENT));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
