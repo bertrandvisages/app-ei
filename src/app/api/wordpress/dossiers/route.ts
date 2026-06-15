@@ -16,14 +16,15 @@ type DossierRow = {
   seo_description: string | null;
   author_id: string | null;
   sort_order: number;
-  status: "draft" | "publie" | "archive";
+  status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
+  scheduled_publish_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, status, published_at, created_at, updated_at";
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, status, published_at, scheduled_publish_at, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -40,6 +41,9 @@ function toApiShape(d: DossierRow) {
     is_modified: isModifiedSincePublish(d),
     author: d.author_id,
     date: d.published_at ?? d.created_at,
+    created_at: d.created_at,
+    updated_at: d.updated_at,
+    scheduled_publish_at: d.scheduled_publish_at,
     link: "",
     slug: d.slug,
     image: d.cover_image_url ?? "",
@@ -171,7 +175,25 @@ export async function PUT(request: Request) {
     updatePayload.status = s;
     if (s === "publie") {
       updatePayload.published_at = new Date().toISOString();
+      // Sortir du status "programme" → on efface la date programmée
+      updatePayload.scheduled_publish_at = null;
+    } else if (s === "programme") {
+      // Programmation : il faut une date dans le futur
+      if (!body.scheduled_publish_at) {
+        return NextResponse.json(
+          { error: "scheduled_publish_at requis pour programmer" },
+          { status: 400 }
+        );
+      }
+      updatePayload.scheduled_publish_at = body.scheduled_publish_at;
+    } else if (s === "draft") {
+      // Repassage en brouillon → on efface la date programmée
+      updatePayload.scheduled_publish_at = null;
     }
+  } else if (body.scheduled_publish_at !== undefined) {
+    // Modification de la date programmée sans changement de status
+    // (ex. l'éditeur ajuste l'heure d'un post déjà en status=programme)
+    updatePayload.scheduled_publish_at = body.scheduled_publish_at || null;
   }
 
   if (Object.keys(updatePayload).length === 0) {

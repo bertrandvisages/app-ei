@@ -34,6 +34,9 @@ interface Contribution {
   is_modified?: boolean;
   author: string;
   date: string;
+  created_at: string;
+  updated_at: string;
+  scheduled_publish_at: string | null;
   link: string;
   image: string;
   image_id: number | null;
@@ -49,6 +52,19 @@ interface ImageCandidate {
 type SortKey = "title" | "author" | "date" | "status";
 type SortDir = "asc" | "desc";
 
+// ISO UTC ("2026-06-20T08:00:00.000Z") → "2026-06-20T10:00" en heure locale
+// (format attendu par <input type="datetime-local">).
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+}
+
+// "2026-06-20T10:00" (heure locale) → ISO UTC pour stockage Supabase.
+function fromLocalInputValue(local: string): string {
+  return new Date(local).toISOString();
+}
+
 export default function DossiersPage() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
@@ -61,6 +77,9 @@ export default function DossiersPage() {
   const [editAuthorId, setEditAuthorId] = useState<string>("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
+  // Datetime au format input HTML5 "YYYY-MM-DDTHH:mm" (heure locale).
+  const [editScheduledAt, setEditScheduledAt] = useState("");
+  const [scheduling, setScheduling] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
   // Cible courante du dialog de confirmation. null = dialog ferme.
@@ -257,6 +276,13 @@ export default function DossiersPage() {
       setEditAuthorId(contrib.author || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+      // Datetime picker : convertit ISO UTC → "YYYY-MM-DDTHH:mm" en
+      // heure locale du navigateur (format attendu par input datetime-local).
+      setEditScheduledAt(
+        contrib.scheduled_publish_at
+          ? toLocalInputValue(contrib.scheduled_publish_at)
+          : ""
+      );
       // Cover actuelle
       setEditCoverUrl(contrib.image || "");
       // Seed les vignettes :
@@ -550,6 +576,67 @@ export default function DossiersPage() {
     setPublishing(null);
   };
 
+  const handleSchedule = async () => {
+    if (!editingId) return;
+    if (!editScheduledAt) {
+      toast.error("Choisis une date de mise en ligne");
+      return;
+    }
+    const iso = fromLocalInputValue(editScheduledAt);
+    if (new Date(iso).getTime() <= Date.now()) {
+      toast.error("La date programmée doit être dans le futur");
+      return;
+    }
+    setScheduling(editingId);
+    try {
+      const res = await fetch("/api/wordpress/dossiers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          status: "programme",
+          scheduled_publish_at: iso,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(
+        `Programmé pour le ${new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`
+      );
+      setContributions(contributions.map((c) =>
+        c.id === editingId
+          ? { ...c, status: "programme", scheduled_publish_at: iso, is_modified: false }
+          : c
+      ));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    }
+    setScheduling(null);
+  };
+
+  const handleCancelSchedule = async (id: string) => {
+    setScheduling(id);
+    try {
+      const res = await fetch("/api/wordpress/dossiers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "draft" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success("Programmation annulée — repassé en brouillon");
+      setContributions(contributions.map((c) =>
+        c.id === id ? { ...c, status: "draft", scheduled_publish_at: null } : c
+      ));
+      if (editingId === id) setEditScheduledAt("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    }
+    setScheduling(null);
+  };
+
   const SortArrow = ({ col }: { col: SortKey }) => (
     <svg
       className={`inline-block ml-1 h-3 w-3 transition-transform ${sortKey === col ? "text-foreground" : "text-muted-foreground/40"} ${sortKey === col && sortDir === "desc" ? "rotate-180" : ""}`}
@@ -662,8 +749,8 @@ export default function DossiersPage() {
               <TableHead className="w-[160px] cursor-pointer select-none" onClick={() => toggleSort("author")}>
                 Auteur <SortArrow col="author" />
               </TableHead>
-              <TableHead className="w-[110px] cursor-pointer select-none" onClick={() => toggleSort("date")}>
-                Date <SortArrow col="date" />
+              <TableHead className="w-[140px] cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                Dates <SortArrow col="date" />
               </TableHead>
               <TableHead className="w-[100px] cursor-pointer select-none" onClick={() => toggleSort("status")}>
                 Publié <SortArrow col="status" />
@@ -705,8 +792,15 @@ export default function DossiersPage() {
                     <TableCell className="text-sm text-muted-foreground">
                       {getAuthorName(contrib.author)}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(contrib.date).toLocaleDateString("fr-FR")}
+                    <TableCell className="text-[11px] text-muted-foreground leading-tight">
+                      <div>
+                        <span className="text-muted-foreground/70">Créé&nbsp;: </span>
+                        {new Date(contrib.created_at).toLocaleDateString("fr-FR")}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground/70">Modifié&nbsp;: </span>
+                        {new Date(contrib.updated_at).toLocaleDateString("fr-FR")}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {contrib.status === "publish" ? (
@@ -715,6 +809,19 @@ export default function DossiersPage() {
                         ) : (
                           <span className="text-xs text-green-600 font-medium">Publié</span>
                         )
+                      ) : contrib.status === "programme" ? (
+                        <span
+                          className="text-xs text-blue-600 font-medium"
+                          title={
+                            contrib.scheduled_publish_at
+                              ? `Mise en ligne automatique le ${new Date(contrib.scheduled_publish_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`
+                              : undefined
+                          }
+                        >
+                          {contrib.scheduled_publish_at
+                            ? `Programmé · ${new Date(contrib.scheduled_publish_at).toLocaleDateString("fr-FR")}`
+                            : "Programmé"}
+                        </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Brouillon</span>
                       )}
@@ -948,6 +1055,44 @@ export default function DossiersPage() {
                                 maxLength={160}
                               />
                               <p className="text-[10px] text-muted-foreground text-right">{editSeoDesc.length}/160</p>
+                            </div>
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Programmer la mise en ligne
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Le job tourne tous les jours vers 5h du matin et publie automatiquement les dossiers dont la date est passée (puis déclenche le rebuild du site).
+                            </p>
+                            <div className="flex items-end gap-3">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-xs">Date et heure</Label>
+                                <Input
+                                  type="datetime-local"
+                                  value={editScheduledAt}
+                                  onChange={(e) => setEditScheduledAt(e.target.value)}
+                                />
+                              </div>
+                              <Button
+                                size="sm"
+                                className="text-xs h-9"
+                                onClick={handleSchedule}
+                                disabled={scheduling === contrib.id || !editScheduledAt}
+                              >
+                                {scheduling === contrib.id ? "..." : "Programmer"}
+                              </Button>
+                              {contrib.status === "programme" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-9"
+                                  onClick={() => handleCancelSchedule(contrib.id)}
+                                  disabled={scheduling === contrib.id}
+                                  title="Annuler la programmation (repasse en brouillon)"
+                                >
+                                  Annuler
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <div className="flex justify-end gap-2">

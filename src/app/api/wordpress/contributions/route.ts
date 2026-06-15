@@ -17,14 +17,15 @@ type ContribRow = {
   cover_image_url: string | null;
   seo_title: string | null;
   seo_description: string | null;
-  status: "draft" | "publie" | "archive";
+  status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
+  scheduled_publish_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, status, published_at, created_at, updated_at";
+  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, status, published_at, scheduled_publish_at, created_at, updated_at";
 
 // Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
 function isModifiedSincePublish(c: ContribRow): boolean {
@@ -43,6 +44,9 @@ function toApiShape(c: ContribRow) {
     is_modified: isModifiedSincePublish(c),
     author: c.author_id,
     date: c.published_at ?? c.created_at,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    scheduled_publish_at: c.scheduled_publish_at,
     link: "",
     slug: c.slug,
     image: c.cover_image_url ?? "",
@@ -177,7 +181,20 @@ export async function PUT(request: Request) {
     updatePayload.status = s;
     if (s === "publie") {
       updatePayload.published_at = new Date().toISOString();
+      updatePayload.scheduled_publish_at = null;
+    } else if (s === "programme") {
+      if (!body.scheduled_publish_at) {
+        return NextResponse.json(
+          { error: "scheduled_publish_at requis pour programmer" },
+          { status: 400 }
+        );
+      }
+      updatePayload.scheduled_publish_at = body.scheduled_publish_at;
+    } else if (s === "draft") {
+      updatePayload.scheduled_publish_at = null;
     }
+  } else if (body.scheduled_publish_at !== undefined) {
+    updatePayload.scheduled_publish_at = body.scheduled_publish_at || null;
   }
 
   if (Object.keys(updatePayload).length === 0) {

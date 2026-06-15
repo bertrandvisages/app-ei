@@ -526,12 +526,20 @@ export default function AuteursPage() {
                       >
                         Suppr.
                       </Button>
-                      <svg
-                        className={`h-4 w-4 text-muted-foreground transition-transform ${editingId === author.id ? "rotate-180" : ""}`}
-                        fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                      <button
+                        type="button"
+                        onClick={() => toggleEdit(author)}
+                        className="p-1 -m-1 rounded hover:bg-muted text-muted-foreground"
+                        title={editingId === author.id ? "Replier" : "Déplier"}
+                        aria-label={editingId === author.id ? "Replier" : "Déplier"}
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
+                        <svg
+                          className={`h-4 w-4 transition-transform ${editingId === author.id ? "rotate-180" : ""}`}
+                          fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                   {editingId !== author.id && (
