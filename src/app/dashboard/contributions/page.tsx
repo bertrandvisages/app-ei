@@ -16,6 +16,7 @@ import {
 import { RichEditorFull } from "@/components/rich-editor-full";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { PENDING_DEPLOY_EVENT } from "@/components/header";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 interface Author {
@@ -85,6 +86,8 @@ export default function ContributionsPage() {
   const [selectedImage, setSelectedImage] = useState<Record<string, number | null>>({});
   // Track which contribs have unsaved image changes
   const [dirtyImages, setDirtyImages] = useState<Set<string>>(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [generatingSeo, setGeneratingSeo] = useState(false);
 
   // Restore session state on mount
   useEffect(() => {
@@ -138,6 +141,16 @@ export default function ContributionsPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setIsAdmin((profile as { role?: string } | null)?.role === "admin");
+      }
       const [authorsRes, contribRes] = await Promise.all([
         fetch("/api/wordpress/authors"),
         fetch("/api/wordpress/contributions"),
@@ -148,6 +161,35 @@ export default function ContributionsPage() {
     }
     load();
   }, []);
+
+  const handleGenerateSeo = async () => {
+    if (!editingId) return;
+    if (!editTitle.trim()) {
+      toast.error("Renseigne d'abord un titre");
+      return;
+    }
+    setGeneratingSeo(true);
+    try {
+      const res = await fetch("/api/generate-seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle,
+          content: editContent,
+          type: "opinion",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setEditSeoTitle(data.seo_title || "");
+      setEditSeoDesc(data.seo_description || "");
+      toast.success("Title et description SEO générés");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingSeo(false);
+    }
+  };
 
   const getAuthorName = (authorId: string) => {
     return authors.find((a) => a.id === authorId)?.name || "Inconnu";
@@ -934,7 +976,22 @@ export default function ContributionsPage() {
                             />
                           </div>
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                              {isAdmin && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-7"
+                                  onClick={handleGenerateSeo}
+                                  disabled={generatingSeo}
+                                  title="Générer un title et une meta description SEO via Gemini"
+                                >
+                                  {generatingSeo ? "Génération…" : "Générer le SEO"}
+                                </Button>
+                              )}
+                            </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Titre SEO</Label>
                               <Input
