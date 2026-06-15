@@ -68,21 +68,24 @@ ${plainContent}
 Ta mission : produire un TITRE SEO et une META DESCRIPTION optimisés pour Google et les réseaux sociaux. Contraintes impératives :
 
 SEO TITLE :
-- Entre 50 et 60 caractères (jamais plus de 60)
+- Entre 50 et 60 caractères (jamais plus de 60, jamais moins de 45)
 - Contient le mot-clé principal du sujet en début si possible
 - Accrocheur mais professionnel (ton institutionnel/expert, pas clickbait)
 - Différent du titre interne : reformule pour optimiser le SERP
 - Pas de point final, pas de guillemets, pas d'emoji
 - Ne pas mentionner "Le Non Coté" (déjà ajouté côté template)
+- DOIT être une phrase ou syntagme COMPLET, jamais coupé en plein milieu
 
 META DESCRIPTION :
-- Entre 140 et 160 caractères (jamais plus de 160)
+- Entre 140 et 160 caractères (jamais plus de 160, jamais moins de 130)
+- Doit être un texte ENTIÈREMENT DIFFÉRENT du seo_title : ne reprend pas mot pour mot la phrase du titre
 - Décrit la valeur ajoutée du contenu pour le lecteur (ce qu'il va apprendre / décider)
-- Contient le mot-clé principal
+- Contient le mot-clé principal mais formulé autrement que dans le title
 - Incite à cliquer sans être racoleur (verbe à l'infinitif ou impératif doux)
 - Finit par un point
 - Pas de "Découvrez", "Cliquez ici", "Lisez notre article" (banni car cliché SEO)
 - Français impeccable, typographie soignée (espaces insécables avant : ; ! ?)
+- DOIT être une phrase complète qui se termine par un point, jamais coupée en plein milieu
 
 Réponds UNIQUEMENT avec un JSON valide de la forme :
 {"seo_title": "…", "seo_description": "…"}
@@ -102,7 +105,11 @@ Aucun texte avant ou après le JSON, pas de markdown, pas de code fence.`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.6,
-            maxOutputTokens: 800,
+            // Volontairement très large : avec responseSchema activé, si on
+            // hit le plafond Gemini clôt le JSON en tronquant les deux
+            // strings au même endroit (bug observé à 800 tokens : title et
+            // description identiques et coupées en plein mot).
+            maxOutputTokens: 4000,
             // Désactive le "thinking" interne de gemini-2.5-flash (cf. generate-citation).
             thinkingConfig: { thinkingBudget: 0 },
             responseMimeType: "application/json",
@@ -184,6 +191,23 @@ Aucun texte avant ou après le JSON, pas de markdown, pas de code fence.`;
   if (!cleanTitle || !cleanDesc) {
     return NextResponse.json(
       { error: "Gemini n'a pas renvoyé de title/description valides" },
+      { status: 502 }
+    );
+  }
+
+  // Garde-fou : si les deux strings sont identiques (ou si l'une est strictement
+  // préfixe de l'autre), c'est qu'on est tombé sur le bug de troncature
+  // synchronisée du responseSchema. On demande à l'utilisateur de relancer.
+  if (
+    cleanTitle === cleanDesc ||
+    cleanDesc.startsWith(cleanTitle) ||
+    cleanTitle.startsWith(cleanDesc)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Gemini a renvoyé un title et une description identiques (probablement tronqués). Relance la génération.",
+      },
       { status: 502 }
     );
   }
