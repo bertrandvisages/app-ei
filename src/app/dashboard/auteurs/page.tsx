@@ -29,6 +29,8 @@ interface Author {
   company: string;
   company_website: string;
   linkedin: string;
+  seo_title: string;
+  seo_description: string;
 }
 
 function PhotoUpload({
@@ -116,7 +118,8 @@ export default function AuteursPage() {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [editImageId, setEditImageId] = useState<number | null>(null);
   const [editImageUrl, setEditImageUrl] = useState("");
-  const [authorContribs, setAuthorContribs] = useState<Record<string, { id: string; title: string; status: string; date: string }[]>>({});
+  type AuthorContentItem = { id: string; title: string; status: string; date: string };
+  const [authorContent, setAuthorContent] = useState<Record<string, { dossiers: AuthorContentItem[]; opinions: AuthorContentItem[] }>>({});
   const [newAuthor, setNewAuthor] = useState({
     first_name: "",
     last_name: "",
@@ -125,7 +128,11 @@ export default function AuteursPage() {
     company: "",
     company_website: "",
     linkedin: "",
+    seo_title: "",
+    seo_description: "",
   });
+  const [generatingSeo, setGeneratingSeo] = useState(false);
+  const [generatingSeoNew, setGeneratingSeoNew] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -166,7 +173,7 @@ export default function AuteursPage() {
 
       toast.success(`Auteur ${data.name} créé`);
       setShowForm(false);
-      setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", company_website: "", linkedin: "" });
+      setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", company_website: "", linkedin: "", seo_title: "", seo_description: "" });
       setNewImageId(null);
       setNewImageUrl("");
       const res2 = await fetch("/api/wordpress/authors");
@@ -189,14 +196,16 @@ export default function AuteursPage() {
       setEditData({ ...author });
       setEditImageId(null);
       setEditImageUrl("");
-      // Fetch contributions for this author
-      if (!authorContribs[author.id]) {
-        const res = await fetch(`/api/wordpress/contributions?author_id=${author.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setAuthorContribs((prev) => ({ ...prev, [author.id]: data }));
-        }
-      }
+      // Refetch dossiers + opinions liés à l'auteur à chaque ouverture
+      // pour avoir l'état à jour (pas de cache : sinon, après une
+      // publication ailleurs, la liste reste périmée).
+      const [dossiersRes, opinionsRes] = await Promise.all([
+        fetch(`/api/wordpress/dossiers?author_id=${author.id}`),
+        fetch(`/api/wordpress/contributions?author_id=${author.id}`),
+      ]);
+      const dossiers: AuthorContentItem[] = dossiersRes.ok ? await dossiersRes.json() : [];
+      const opinions: AuthorContentItem[] = opinionsRes.ok ? await opinionsRes.json() : [];
+      setAuthorContent((prev) => ({ ...prev, [author.id]: { dossiers, opinions } }));
     }
   };
 
@@ -217,6 +226,8 @@ export default function AuteursPage() {
           company: editData.company,
           company_website: editData.company_website,
           linkedin: editData.linkedin,
+          seo_title: editData.seo_title,
+          seo_description: editData.seo_description,
           image_id: editImageId || undefined,
           image_url: editImageUrl || undefined,
         }),
@@ -238,6 +249,75 @@ export default function AuteursPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
     setSaving(false);
+  };
+
+  const handleGenerateSeoEdit = async () => {
+    if (!editData) return;
+    const fullName = `${editData.first_name} ${editData.last_name}`.trim();
+    if (!fullName) {
+      toast.error("Renseigne d'abord un prénom ou un nom");
+      return;
+    }
+    setGeneratingSeo(true);
+    try {
+      const res = await fetch("/api/generate-seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "author",
+          name: fullName,
+          job_title: editData.job_title,
+          company: editData.company,
+          bio: editData.description,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setEditData({
+        ...editData,
+        seo_title: data.seo_title || "",
+        seo_description: data.seo_description || "",
+      });
+      toast.success("Title et description SEO générés");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingSeo(false);
+    }
+  };
+
+  const handleGenerateSeoNew = async () => {
+    const fullName = `${newAuthor.first_name} ${newAuthor.last_name}`.trim();
+    if (!fullName) {
+      toast.error("Renseigne d'abord un prénom ou un nom");
+      return;
+    }
+    setGeneratingSeoNew(true);
+    try {
+      const res = await fetch("/api/generate-seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "author",
+          name: fullName,
+          job_title: newAuthor.job_title,
+          company: newAuthor.company,
+          bio: newAuthor.description,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      setNewAuthor({
+        ...newAuthor,
+        seo_title: data.seo_title || "",
+        seo_description: data.seo_description || "",
+      });
+      toast.success("Title et description SEO générés");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setGeneratingSeoNew(false);
+    }
   };
 
   const handleDeleteConfirmed = async () => {
@@ -353,6 +433,44 @@ export default function AuteursPage() {
                   content={newAuthor.description}
                   onChange={(html) => setNewAuthor({ ...newAuthor, description: html })}
                 />
+              </div>
+              <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                  {isAdmin && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs h-7"
+                      onClick={handleGenerateSeoNew}
+                      disabled={generatingSeoNew}
+                      title="Générer un title et une meta description SEO via Gemini"
+                    >
+                      {generatingSeoNew ? "Génération…" : "Générer le SEO"}
+                    </Button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Titre SEO</Label>
+                  <Input
+                    value={newAuthor.seo_title}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, seo_title: e.target.value })}
+                    placeholder="Titre de 60 caractères max"
+                    maxLength={60}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right">{newAuthor.seo_title.length}/60</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Meta description</Label>
+                  <Input
+                    value={newAuthor.seo_description}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, seo_description: e.target.value })}
+                    placeholder="Description de 160 caractères max"
+                    maxLength={160}
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right">{newAuthor.seo_description.length}/160</p>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button type="submit" disabled={creating}>
@@ -482,32 +600,85 @@ export default function AuteursPage() {
                       onChange={(html) => setEditData({ ...editData, description: html })}
                     />
                   </div>
-                  {/* Contributions de l'auteur */}
-                  {authorContribs[author.id] && authorContribs[author.id].length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        Contributions ({authorContribs[author.id].length})
-                      </Label>
-                      <div className="rounded-md border divide-y">
-                        {authorContribs[author.id].map((c) => (
-                          <div key={c.id} className="flex items-center justify-between px-3 py-2">
-                            <div>
-                              <p className="text-sm font-medium">{c.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {new Date(c.date).toLocaleDateString("fr-FR")}
-                              </p>
-                            </div>
-                            <Badge
-                              variant={c.status === "publish" ? "default" : "secondary"}
-                              className="text-[10px]"
-                            >
-                              {c.status === "publish" ? "Publié" : "Brouillon"}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
+                      {isAdmin && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={handleGenerateSeoEdit}
+                          disabled={generatingSeo}
+                          title="Générer un title et une meta description SEO via Gemini"
+                        >
+                          {generatingSeo ? "Génération…" : "Générer le SEO"}
+                        </Button>
+                      )}
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label className="text-xs">Titre SEO</Label>
+                      <Input
+                        value={editData.seo_title}
+                        onChange={(e) => setEditData({ ...editData, seo_title: e.target.value })}
+                        placeholder="Titre de 60 caractères max"
+                        maxLength={60}
+                      />
+                      <p className="text-[10px] text-muted-foreground text-right">{editData.seo_title.length}/60</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Meta description</Label>
+                      <Input
+                        value={editData.seo_description}
+                        onChange={(e) => setEditData({ ...editData, seo_description: e.target.value })}
+                        placeholder="Description de 160 caractères max"
+                        maxLength={160}
+                      />
+                      <p className="text-[10px] text-muted-foreground text-right">{editData.seo_description.length}/160</p>
+                    </div>
+                  </div>
+                  {/* Dossiers et opinions liés à l'auteur */}
+                  {(() => {
+                    const content = authorContent[author.id];
+                    if (!content) return null;
+                    const dossiers = content.dossiers;
+                    const opinions = content.opinions;
+                    if (dossiers.length === 0 && opinions.length === 0) return null;
+                    const renderList = (items: AuthorContentItem[], label: string) => (
+                      items.length === 0 ? null : (
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-muted-foreground">
+                            {label} ({items.length})
+                          </Label>
+                          <div className="rounded-md border divide-y">
+                            {items.map((it) => (
+                              <div key={it.id} className="flex items-center justify-between px-3 py-2">
+                                <div>
+                                  <p className="text-sm font-medium">{it.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {new Date(it.date).toLocaleDateString("fr-FR")}
+                                  </p>
+                                </div>
+                                <Badge
+                                  variant={it.status === "publish" ? "default" : "secondary"}
+                                  className="text-[10px]"
+                                >
+                                  {it.status === "publish" ? "Publié" : "Brouillon"}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    );
+                    return (
+                      <>
+                        {renderList(dossiers, "Dossiers")}
+                        {renderList(opinions, "Opinions")}
+                      </>
+                    );
+                  })()}
 
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setEditData(null); }}>

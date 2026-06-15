@@ -25,7 +25,12 @@ type AuthorRow = {
   company_website: string | null;
   linkedin: string | null;
   image_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
 };
+
+const SELECT_COLS =
+  "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url, seo_title, seo_description";
 
 // Map Supabase row → shape attendue par le dashboard (rétrocompatible WP API)
 function toApiShape(a: AuthorRow) {
@@ -44,6 +49,8 @@ function toApiShape(a: AuthorRow) {
     company: a.company ?? "",
     company_website: a.company_website ?? "",
     linkedin: a.linkedin ?? "",
+    seo_title: a.seo_title ?? "",
+    seo_description: a.seo_description ?? "",
   };
 }
 
@@ -59,9 +66,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("authors")
-    .select(
-      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
-    )
+    .select(SELECT_COLS)
     .order("name", { ascending: true });
 
   if (error) {
@@ -114,14 +119,14 @@ export async function POST(request: Request) {
     company_website: body.company_website || null,
     linkedin: body.linkedin || null,
     image_url: body.image_url || null,
+    seo_title: body.seo_title || null,
+    seo_description: body.seo_description || null,
   };
 
   const { data, error } = await supabase
     .from("authors")
     .insert(insertPayload)
-    .select(
-      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
-    )
+    .select(SELECT_COLS)
     .single();
 
   if (error) {
@@ -156,6 +161,12 @@ export async function PUT(request: Request) {
   if (body.company_website !== undefined) updatePayload.company_website = body.company_website || null;
   if (body.linkedin !== undefined) updatePayload.linkedin = body.linkedin || null;
   if (body.image_url !== undefined) updatePayload.image_url = body.image_url || null;
+  // Champs SEO : on stocke null si l'éditeur vide la case pour activer
+  // le fallback côté site Astro (name + bio).
+  if (body.seo_title !== undefined)
+    updatePayload.seo_title = body.seo_title || null;
+  if (body.seo_description !== undefined)
+    updatePayload.seo_description = body.seo_description || null;
 
   // Recompute 'name' uniquement si first_name OU last_name a été fourni
   if (body.first_name !== undefined || body.last_name !== undefined) {
@@ -173,9 +184,7 @@ export async function PUT(request: Request) {
     .from("authors")
     .update(updatePayload)
     .eq("id", body.id)
-    .select(
-      "id, wp_id, slug, name, first_name, last_name, bio, job_title, company, company_website, linkedin, image_url"
-    )
+    .select(SELECT_COLS)
     .single();
 
   if (error) {

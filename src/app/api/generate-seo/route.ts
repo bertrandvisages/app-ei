@@ -36,42 +36,75 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.title !== "string" || !body.title.trim()) {
-    return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+  if (!body) {
+    return NextResponse.json({ error: "Body invalide" }, { status: 400 });
   }
 
-  const title = body.title.trim();
-  const content = typeof body.content === "string" ? body.content : "";
-  const type: "dossier" | "opinion" =
-    body.type === "opinion" ? "opinion" : "dossier";
+  const rawType = body.type === "opinion" || body.type === "author" ? body.type : "dossier";
+  const type = rawType as "dossier" | "opinion" | "author";
 
-  // Strip HTML, normalise espaces, plafonne à 6000 chars
-  const plainContent = content
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 6000);
+  // Strip HTML, normalise espaces, plafonne (cap court pour les auteurs)
+  const stripHtml = (s: string, cap: number) =>
+    s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, cap);
 
-  const typeLabel = type === "opinion" ? "une opinion (édito)" : "un dossier";
-  const typeContext =
-    type === "opinion"
-      ? "C'est une tribune éditoriale, signée par un expert."
-      : "C'est un dossier d'analyse approfondi sur un sujet d'investissement.";
+  // Construit le bloc "contexte" envoyé à Gemini selon le type.
+  let promptIntro: string;
+  let promptInputs: string;
 
-  const prompt = `Tu es expert SEO pour Le Non Coté (lenoncote.fr), publication française spécialisée dans l'investissement non coté (private equity, capital-risque, growth, entrepreneurs investis). Tu vas optimiser le SEO de ${typeLabel}. ${typeContext}
+  if (type === "author") {
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      return NextResponse.json({ error: "Nom requis" }, { status: 400 });
+    }
+    const jobTitle = typeof body.job_title === "string" ? body.job_title.trim() : "";
+    const company = typeof body.company === "string" ? body.company.trim() : "";
+    const bio = typeof body.bio === "string" ? stripHtml(body.bio, 3000) : "";
 
-TITRE INTERNE : ${title}
+    promptIntro = `Tu es expert SEO pour Le Non Coté (lenoncote.fr), publication française spécialisée dans l'investissement non coté (private equity, capital-risque, growth, entrepreneurs investis). Tu vas optimiser le SEO d'une page AUTEUR — c'est la page de profil d'un contributeur expert du média.`;
+    promptInputs = `NOM : ${name}${jobTitle ? `\nFONCTION : ${jobTitle}` : ""}${company ? `\nENTREPRISE : ${company}` : ""}${bio ? `\n\nBIO :\n${bio}` : ""}`;
+  } else {
+    if (typeof body.title !== "string" || !body.title.trim()) {
+      return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+    }
+    const title = body.title.trim();
+    const content = typeof body.content === "string" ? body.content : "";
+    const plainContent = stripHtml(content, 6000);
 
-CONTENU :
-${plainContent}
+    const typeLabel = type === "opinion" ? "une opinion (édito)" : "un dossier";
+    const typeContext =
+      type === "opinion"
+        ? "C'est une tribune éditoriale, signée par un expert."
+        : "C'est un dossier d'analyse approfondi sur un sujet d'investissement.";
+
+    promptIntro = `Tu es expert SEO pour Le Non Coté (lenoncote.fr), publication française spécialisée dans l'investissement non coté (private equity, capital-risque, growth, entrepreneurs investis). Tu vas optimiser le SEO de ${typeLabel}. ${typeContext}`;
+    promptInputs = `TITRE INTERNE : ${title}\n\nCONTENU :\n${plainContent}`;
+  }
+
+  // Règles spécifiques au type pour le title et la description.
+  const titleHint =
+    type === "author"
+      ? `- Mentionne le NOM de l'auteur et son angle d'expertise (private equity, capital-risque, family office, etc.)
+- Pas "Profil de …" ni "Auteur :" : formuler comme un titre de page utile (ex. "Nom Prenom, expert capital-risque" ou similaire)`
+      : `- Contient le mot-clé principal du sujet en début si possible
+- Différent du titre interne : reformule pour optimiser le SERP`;
+
+  const descHint =
+    type === "author"
+      ? `- Présente la valeur ajoutée des contenus de cet auteur pour le lecteur (son angle, ses sujets de prédilection, son expertise)
+- Mentionne sa fonction ou son entreprise si c'est pertinent`
+      : `- Décrit la valeur ajoutée du contenu pour le lecteur (ce qu'il va apprendre / décider)
+- Contient le mot-clé principal mais formulé autrement que dans le title`;
+
+  const prompt = `${promptIntro}
+
+${promptInputs}
 
 Ta mission : produire un TITRE SEO et une META DESCRIPTION optimisés pour Google et les réseaux sociaux. Contraintes impératives :
 
 SEO TITLE :
 - Entre 50 et 60 caractères (jamais plus de 60, jamais moins de 45)
-- Contient le mot-clé principal du sujet en début si possible
+${titleHint}
 - Accrocheur mais professionnel (ton institutionnel/expert, pas clickbait)
-- Différent du titre interne : reformule pour optimiser le SERP
 - Pas de point final, pas de guillemets, pas d'emoji
 - Ne pas mentionner "Le Non Coté" (déjà ajouté côté template)
 - DOIT être une phrase ou syntagme COMPLET, jamais coupé en plein milieu
@@ -79,8 +112,7 @@ SEO TITLE :
 META DESCRIPTION :
 - Entre 140 et 160 caractères (jamais plus de 160, jamais moins de 130)
 - Doit être un texte ENTIÈREMENT DIFFÉRENT du seo_title : ne reprend pas mot pour mot la phrase du titre
-- Décrit la valeur ajoutée du contenu pour le lecteur (ce qu'il va apprendre / décider)
-- Contient le mot-clé principal mais formulé autrement que dans le title
+${descHint}
 - Incite à cliquer sans être racoleur (verbe à l'infinitif ou impératif doux)
 - Finit par un point
 - Pas de "Découvrez", "Cliquez ici", "Lisez notre article" (banni car cliché SEO)
