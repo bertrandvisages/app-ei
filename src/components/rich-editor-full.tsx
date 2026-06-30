@@ -25,6 +25,45 @@ function cleanHtmlForTiptap(html: string): string {
   return cleaned;
 }
 
+// L'editeur ne connait que les niveaux H2/H3/H4 (cf. Heading.configure plus
+// bas) et le site public stylise H2/H3/H4. Word produit le plus souvent du
+// H1 pour les titres : on decale donc tout d'un cran (H1->H2) et on rabat les
+// niveaux profonds (H5/H6) sur H4 pour ne rien perdre.
+function shiftHeadingsForEditor(html: string): string {
+  return html
+    .replace(/<(\/?)h1(\s[^>]*)?>/gi, "<$1h2$2>")
+    .replace(/<(\/?)h5(\s[^>]*)?>/gi, "<$1h4$2>")
+    .replace(/<(\/?)h6(\s[^>]*)?>/gi, "<$1h4$2>");
+}
+
+// Les images Word arrivent en base64 inline, que l'editeur refuse
+// (Image.allowBase64 = false). On les retire et on renvoie le compte pour
+// pouvoir prevenir l'utilisateur qu'il doit les reinserer manuellement.
+function stripImages(html: string): { html: string; count: number } {
+  let count = 0;
+  const cleaned = html.replace(/<img\b[^>]*>/gi, () => {
+    count += 1;
+    return "";
+  });
+  return { html: cleaned, count };
+}
+
+// Word francais nomme ses styles "Titre 1/2/3" et l'anglais "Heading 1/2/3".
+// On mappe les deux vers H2/H3/H4 ; mammoth garde sa style-map par defaut
+// (gras, italique, listes, tableaux, liens) en plus de celle-ci.
+const WORD_STYLE_MAP = [
+  "p[style-name='Title'] => h2:fresh",
+  "p[style-name='Titre'] => h2:fresh",
+  "p[style-name='Heading 1'] => h2:fresh",
+  "p[style-name='Titre 1'] => h2:fresh",
+  "p[style-name='Heading 2'] => h3:fresh",
+  "p[style-name='Titre 2'] => h3:fresh",
+  "p[style-name='Heading 3'] => h4:fresh",
+  "p[style-name='Titre 3'] => h4:fresh",
+  "p[style-name='Heading 4'] => h4:fresh",
+  "p[style-name='Titre 4'] => h4:fresh",
+];
+
 interface RichEditorFullProps {
   content: string;
   onChange: (html: string) => void;
@@ -144,6 +183,8 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   // (editor undefined → return null) skipperait les hooks suivants.
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const wordInputRef = useRef<HTMLInputElement>(null);
+  const [importingWord, setImportingWord] = useState(false);
 
   if (!editor) return null;
 
@@ -210,6 +251,67 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
       window.alert(err instanceof Error ? err.message : "Upload échoué");
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // Import Word (.docx) : conversion en HTML cote client via mammoth, puis
+  // insertion au curseur. On garde la mise en forme (gras/italique, listes,
+  // tableaux, liens) et on rabat les titres sur H2/H3/H4. Les images Word
+  // (base64) ne sont pas importees — l'editeur ne les accepte pas.
+  const triggerWordPicker = () => wordInputRef.current?.click();
+
+  const handleWordImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".docx")) {
+      window.alert(
+        "Format non supporté : seuls les fichiers Word .docx fonctionnent (pas le vieux .doc ni le PDF)."
+      );
+      return;
+    }
+
+    setImportingWord(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      // On importe "mammoth" (et non le sous-chemin .browser) : son champ
+      // package.json "browser" remappe deja les modules Node (unzip/files)
+      // vers leurs equivalents navigateur, et ce point d'entree fournit les
+      // types TS. Import dynamique = la lib n'est chargee qu'au 1er import.
+      const mammoth = (await import("mammoth")).default;
+      const result = await mammoth.convertToHtml(
+        { arrayBuffer },
+        { styleMap: WORD_STYLE_MAP }
+      );
+
+      const shifted = shiftHeadingsForEditor(result.value);
+      const { html: noImages, count: droppedImages } = stripImages(shifted);
+      const cleaned = cleanHtmlForTiptap(noImages);
+
+      if (!cleaned.trim()) {
+        window.alert("Le document semble vide, rien à importer.");
+        return;
+      }
+
+      // insertContent (et non setContent) : on insere au curseur sans ecraser
+      // ce qui est deja saisi. onUpdate propage le HTML via onChange.
+      editor.chain().focus().insertContent(cleaned).run();
+
+      if (droppedImages > 0) {
+        window.alert(
+          `Import terminé. ${droppedImages} image(s) du document n'ont pas pu être importées — ajoute-les manuellement avec le bouton « Image ».`
+        );
+      }
+    } catch (err) {
+      console.error("[word-import]", err);
+      window.alert(
+        err instanceof Error
+          ? `Import échoué : ${err.message}`
+          : "Import échoué."
+      );
+    } finally {
+      setImportingWord(false);
     }
   };
 
@@ -338,6 +440,23 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
         >
           Tableau
         </button>
+        <div className="w-px bg-border mx-1" />
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); triggerWordPicker(); }}
+          className={btnBase}
+          disabled={importingWord}
+          title="Importer un document Word (.docx) avec sa mise en forme : titres, listes, tableaux"
+        >
+          {importingWord ? "Import…" : "Import Word"}
+        </button>
+        <input
+          ref={wordInputRef}
+          type="file"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          onChange={handleWordImport}
+          className="hidden"
+        />
         {isActive("table") && (
           <>
             <button
