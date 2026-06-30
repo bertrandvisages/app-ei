@@ -119,6 +119,7 @@ Si tu ajoutes une env var et un simple Restart ne la voit pas, fais un **Redeplo
 | `/api/users/create` | POST | **admin** | crée un éditeur (service_role) |
 | `/api/users/delete` | POST | **admin** | supprime un éditeur |
 | `/api/subscribers/delete` | POST | **admin** | supprime un abonné (wp ou inscription) |
+| `/api/cron/publish-scheduled` | GET | `Bearer CRON_SECRET` | publie les dossiers/contributions `programme` dont `scheduled_publish_at` est passé, puis 1 rebuild. Appelé par une Scheduled Task Coolify (`0 8 * * *`). |
 
 Toutes les routes wrappent leur logique dans try/catch et renvoient **toujours** du JSON (jamais un body vide même en 500), pour éviter le `JSON.parse unexpected end of data` côté client.
 
