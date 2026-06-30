@@ -441,6 +441,11 @@ export default function DossiersPage() {
               title: editTitle,
               content: editContent,
               author: editAuthorId,
+              // On resynchronise le SEO dans l'etat local, sinon en rouvrant
+              // l'edition sans recharger la page le formulaire relit l'ancien
+              // SEO (vide pour un dossier recent) et il semble avoir disparu.
+              seo_title: editSeoTitle,
+              seo_description: editSeoDesc,
               // Si l'item était déjà publié, l'édition le marque comme modifié
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),

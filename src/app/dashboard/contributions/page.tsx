@@ -467,6 +467,10 @@ export default function ContributionsPage() {
               content: editContent,
               citation: editCitation,
               author: editAuthorId,
+              // Resync du SEO local, sinon rouvrir l'edition sans recharger la
+              // page reaffiche l'ancien SEO (vide) et il semble disparaitre.
+              seo_title: editSeoTitle,
+              seo_description: editSeoDesc,
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
             }
