@@ -33,6 +33,7 @@ interface Contribution {
   citation: string;
   status: string;
   is_modified?: boolean;
+  homepage: boolean;
   author: string;
   date: string;
   created_at: string;
@@ -83,6 +84,7 @@ export default function ContributionsPage() {
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [togglingHomepage, setTogglingHomepage] = useState<string | null>(null);
   // Cible courante du dialog de confirmation. null = dialog ferme.
   const [deleteTarget, setDeleteTarget] = useState<Contribution | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -573,6 +575,32 @@ export default function ContributionsPage() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirtyImages]);
 
+  const handleToggleHomepage = async (contrib: Contribution) => {
+    const next = !contrib.homepage;
+    setTogglingHomepage(contrib.id);
+    // Optimiste : on met à jour l'UI tout de suite, on rollback si erreur.
+    setContributions((prev) =>
+      prev.map((c) => (c.id === contrib.id ? { ...c, homepage: next } : c))
+    );
+    try {
+      const res = await fetch("/api/wordpress/contributions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: contrib.id, homepage: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(next ? "Ajouté à la page d'accueil" : "Retiré de la page d'accueil");
+    } catch (err) {
+      // rollback
+      setContributions((prev) =>
+        prev.map((c) => (c.id === contrib.id ? { ...c, homepage: contrib.homepage } : c))
+      );
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    }
+    setTogglingHomepage(null);
+  };
+
   const handlePublish = async (id: string) => {
     setPublishing(id);
     try {
@@ -791,13 +819,14 @@ export default function ContributionsPage() {
               <TableHead className="w-[100px] cursor-pointer select-none" onClick={() => toggleSort("status")}>
                 Publié <SortArrow col="status" />
               </TableHead>
+              <TableHead className="w-[80px] text-center">Accueil</TableHead>
               <TableHead className="w-[120px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                   Aucune contribution
                 </TableCell>
               </TableRow>
@@ -862,6 +891,16 @@ export default function ContributionsPage() {
                         <span className="text-xs text-muted-foreground">Brouillon</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer accent-[#E35205] align-middle"
+                        checked={contrib.homepage}
+                        disabled={togglingHomepage === contrib.id}
+                        onChange={() => handleToggleHomepage(contrib)}
+                        title="Mettre en avant sur la page d'accueil du site"
+                      />
+                    </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1.5">
                         <Button
@@ -896,7 +935,7 @@ export default function ContributionsPage() {
 
                   {editingId === contrib.id && (
                     <TableRow key={`${contrib.id}-edit`}>
-                      <TableCell colSpan={6} className="bg-muted/30 p-0">
+                      <TableCell colSpan={7} className="bg-muted/30 p-0">
                         <div className="p-5 space-y-4">
                           {/* Aperçu de la cover actuelle */}
                           {editCoverUrl ? (

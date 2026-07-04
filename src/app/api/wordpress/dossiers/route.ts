@@ -16,6 +16,7 @@ type DossierRow = {
   seo_description: string | null;
   author_id: string | null;
   sort_order: number;
+  homepage: boolean;
   status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
   scheduled_publish_at: string | null;
@@ -24,7 +25,7 @@ type DossierRow = {
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, status, published_at, scheduled_publish_at, created_at, updated_at";
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, homepage, status, published_at, scheduled_publish_at, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -51,6 +52,7 @@ function toApiShape(d: DossierRow) {
     seo_title: d.seo_title ?? "",
     seo_description: d.seo_description ?? "",
     sort_order: d.sort_order,
+    homepage: d.homepage ?? false,
   };
 }
 
@@ -164,6 +166,7 @@ export async function PUT(request: Request) {
   }
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
   if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
+  if (body.homepage !== undefined) updatePayload.homepage = body.homepage;
   // Champs SEO : on stocke null si l'éditeur vide la case pour activer
   // le fallback côté site Astro (qui retombe sur title/excerpt si null).
   if (body.seo_title !== undefined)
