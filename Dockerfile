@@ -1,5 +1,9 @@
 FROM node:20-alpine AS base
 
+# curl requis par la Scheduled Task Coolify (cron publish-scheduled) qui
+# s'exécute DANS le conteneur — Alpine ne l'embarque pas par défaut.
+RUN apk add --no-cache curl
+
 # Install dependencies
 FROM base AS deps
 WORKDIR /app
