@@ -41,9 +41,15 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar profile={safeProfile} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* min-w-0 : sans ça, cette colonne flex refuse de rétrécir sous la
+          largeur intrinsèque de son contenu (ex. un tableau large) et décale
+          toute la page vers la droite -> scroll horizontal parasite de la
+          largeur du menu. overflow-x-hidden sur <main> garantit qu'aucun
+          scroll horizontal ne se crée au niveau page ; les tableaux larges
+          scrollent dans leur propre conteneur (ui/table.tsx overflow-x-auto). */}
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Header profile={safeProfile} />
-        <main className="flex-1 overflow-y-auto p-6 bg-muted/30">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 bg-muted/30">
           {children}
         </main>
       </div>
