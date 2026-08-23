@@ -20,13 +20,29 @@ export default async function DashboardLayout({
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  // Filet de sécurité : si la ligne `profiles` est absente ou illisible, on ne
+  // casse plus tout le dashboard (avant : `profile as Profile` puis
+  // `profile.full_name` → crash "This page couldn't load"). On reconstruit un
+  // profil minimal depuis l'utilisateur auth, role `editeur` = moindre
+  // privilège (on ne fabrique JAMAIS un admin). Fix DB : (ré)insérer la ligne
+  // dans `profiles` pour retrouver le bon role.
+  const safeProfile: Profile = profile ?? {
+    id: user.id,
+    email: user.email ?? "",
+    full_name:
+      (user.user_metadata?.full_name as string | undefined) ?? null,
+    role: "editeur",
+    created_at: user.created_at ?? new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar profile={profile as Profile} />
+      <Sidebar profile={safeProfile} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header profile={profile as Profile} />
+        <Header profile={safeProfile} />
         <main className="flex-1 overflow-y-auto p-6 bg-muted/30">
           {children}
         </main>

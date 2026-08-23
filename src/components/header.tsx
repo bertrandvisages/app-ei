@@ -74,7 +74,7 @@ export function Header({ profile }: { profile: Profile }) {
         .join("")
         .toUpperCase()
         .slice(0, 2)
-    : profile.email[0].toUpperCase();
+    : profile.email?.[0]?.toUpperCase() ?? "?";
 
   const hasPending = (pendingCount ?? 0) > 0;
 
