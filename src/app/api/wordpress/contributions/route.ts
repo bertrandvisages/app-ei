@@ -45,6 +45,7 @@ function toApiShape(c: ContribRow) {
     is_modified: isModifiedSincePublish(c),
     author: c.author_id,
     date: c.published_at ?? c.created_at,
+    published_at: c.published_at,
     created_at: c.created_at,
     updated_at: c.updated_at,
     scheduled_publish_at: c.scheduled_publish_at,

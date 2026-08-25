@@ -37,6 +37,7 @@ interface Contribution {
   date: string;
   created_at: string;
   updated_at: string;
+  published_at: string | null;
   scheduled_publish_at: string | null;
   link: string;
   image: string;
@@ -838,11 +839,18 @@ export default function DossiersPage() {
                     </TableCell>
                     <TableCell>
                       {contrib.status === "publish" ? (
-                        contrib.is_modified ? (
-                          <span className="text-xs text-amber-600 font-medium">Modifié</span>
-                        ) : (
-                          <span className="text-xs text-green-600 font-medium">Publié</span>
-                        )
+                        <div className="leading-tight">
+                          {contrib.is_modified ? (
+                            <span className="text-xs text-amber-600 font-medium">Modifié</span>
+                          ) : (
+                            <span className="text-xs text-green-600 font-medium">Publié</span>
+                          )}
+                          {contrib.published_at && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {new Date(contrib.published_at).toLocaleDateString("fr-FR")}
+                            </div>
+                          )}
+                        </div>
                       ) : contrib.status === "programme" ? (
                         <span
                           className="text-xs text-blue-600 font-medium"

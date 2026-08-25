@@ -42,6 +42,7 @@ function toApiShape(d: DossierRow) {
     is_modified: isModifiedSincePublish(d),
     author: d.author_id,
     date: d.published_at ?? d.created_at,
+    published_at: d.published_at,
     created_at: d.created_at,
     updated_at: d.updated_at,
     scheduled_publish_at: d.scheduled_publish_at,
