@@ -72,6 +72,8 @@ Bucket `media`, public read. RLS autorise les authentifiés à INSERT/UPDATE/DEL
 
 - `COOLIFY_DEPLOY_WEBHOOK_URL` + `COOLIFY_API_TOKEN` runtime
 - ⚠️ L'URL **DOIT** finir par **`&force=true`**. Le site public est un statique nourri par Supabase **au build** ; son contenu ne vit pas dans git. Avec `force=false`, Coolify voit « même SHA git qu'au dernier build » et **skippe le rebuild** (`Build step skipped`) → le site reste figé malgré les publications. `force=true` force un vrai rebuild (donc un re-`SELECT` Supabase) à chaque fois.
+- ⚠️ L'appel se fait en **POST** (`trigger-deploy.ts`). Depuis une mise à jour Coolify (~août 2026) l'endpoint `/api/v1/deploy` renvoie **405** en GET (`This endpoint has changed to a POST request.`) → aucun build déclenché, site figé. C'était la vraie cause du site bloqué (le `force` était un leurre). Vérifiable : `curl -i -X POST ".../api/v1/deploy?uuid=...&force=true" -H "Authorization: Bearer $COOLIFY_API_TOKEN"` doit renvoyer 200 + `Deployment queued`.
+- Le token `COOLIFY_API_TOKEN` doit avoir la permission **Deploy** (pas seulement Read).
 - Helper `src/lib/trigger-deploy.ts` (fire-and-forget, logué via console)
 - Appelé depuis `/api/wordpress/publish`, `/api/wordpress/dossiers` PUT (sur status `publie`), `/api/wordpress/contributions` PUT (sur status `publie`)
 

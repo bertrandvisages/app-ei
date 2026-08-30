@@ -23,8 +23,12 @@ export async function triggerLenoncoteRebuild(): Promise<void> {
   }
 
   try {
+    // ⚠️ POST obligatoire : depuis une mise à jour Coolify (~août 2026),
+    // l'endpoint /api/v1/deploy répond 405 en GET
+    // ("This endpoint has changed to a POST request.") et ne déclenche donc
+    // aucun build. En GET le site restait figé malgré chaque publication.
     const res = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
       },
