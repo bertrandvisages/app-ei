@@ -119,6 +119,7 @@ Si tu ajoutes une env var et un simple Restart ne la voit pas, fais un **Redeplo
 | `/api/wordpress/upload` | POST | authenticated | upload Supabase Storage |
 | `/api/generate-image` | POST | authenticated | Gemini 3 Pro Image |
 | `/api/generate-citation` | POST | authenticated | Gemini 2.5 Flash |
+| `/api/generate-classification` | POST | authenticated | Gemini 2.5 Flash → suggère `theme`+`sujet` (contraint aux listes de `src/lib/taxonomy.ts`) |
 | `/api/users/create` | POST | **admin** | crée un éditeur (service_role) |
 | `/api/users/delete` | POST | **admin** | supprime un éditeur |
 | `/api/subscribers/delete` | POST | **admin** | supprime un abonné (wp ou inscription) |
