@@ -17,6 +17,7 @@ import { RichEditorFull } from "@/components/rich-editor-full";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { PENDING_DEPLOY_EVENT } from "@/components/header";
 import { createClient } from "@/lib/supabase/client";
+import { THEMES, SUJETS, themeLabel, sujetLabel } from "@/lib/taxonomy";
 import { toast } from "sonner";
 
 interface Author {
@@ -39,6 +40,8 @@ interface Contribution {
   updated_at: string;
   published_at: string | null;
   scheduled_publish_at: string | null;
+  theme: string | null;
+  sujet: string | null;
   link: string;
   image: string;
   image_id: number | null;
@@ -79,6 +82,8 @@ export default function DossiersPage() {
   const [editAuthorId, setEditAuthorId] = useState<string>("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
+  const [editTheme, setEditTheme] = useState("");
+  const [editSujet, setEditSujet] = useState("");
   // Datetime au format input HTML5 "YYYY-MM-DDTHH:mm" (heure locale).
   const [editScheduledAt, setEditScheduledAt] = useState("");
   const [scheduling, setScheduling] = useState<string | null>(null);
@@ -279,6 +284,8 @@ export default function DossiersPage() {
       setEditAuthorId(contrib.author || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+      setEditTheme(contrib.theme || "");
+      setEditSujet(contrib.sujet || "");
       // Datetime picker : convertit ISO UTC → "YYYY-MM-DDTHH:mm" en
       // heure locale du navigateur (format attendu par input datetime-local).
       setEditScheduledAt(
@@ -429,6 +436,8 @@ export default function DossiersPage() {
           author_id: editAuthorId || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
+          theme: editTheme || null,
+          sujet: editSujet || null,
           ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
         }),
       });
@@ -449,6 +458,8 @@ export default function DossiersPage() {
               // SEO (vide pour un dossier recent) et il semble avoir disparu.
               seo_title: editSeoTitle,
               seo_description: editSeoDesc,
+              theme: editTheme || null,
+              sujet: editSujet || null,
               // Si l'item était déjà publié, l'édition le marque comme modifié
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
@@ -821,7 +832,24 @@ export default function DossiersPage() {
                         {contrib.image && (
                           <img src={contrib.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                         )}
-                        <p className="font-medium text-sm line-clamp-1">{contrib.title}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm line-clamp-1">{contrib.title}</p>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {sujetLabel(contrib.sujet) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E35205]/10 text-[#E35205] font-medium">
+                                {sujetLabel(contrib.sujet)}
+                              </span>
+                            )}
+                            {themeLabel(contrib.theme) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                                {themeLabel(contrib.theme)}
+                              </span>
+                            )}
+                            {!contrib.theme && !contrib.sujet && (
+                              <span className="text-[10px] text-muted-foreground/60 italic">Non classé</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -1062,6 +1090,43 @@ export default function DossiersPage() {
                                   </option>
                                 ))}
                               </select>
+                            </div>
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Classement
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Thème (angle)</Label>
+                                <select
+                                  value={editTheme}
+                                  onChange={(e) => setEditTheme(e.target.value)}
+                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">— Non classé —</option>
+                                  {THEMES.map((t) => (
+                                    <option key={t.value} value={t.value}>
+                                      {t.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Sujet (univers)</Label>
+                                <select
+                                  value={editSujet}
+                                  onChange={(e) => setEditSujet(e.target.value)}
+                                  className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">— Non classé —</option>
+                                  {SUJETS.map((s) => (
+                                    <option key={s.value} value={s.value}>
+                                      {s.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                           <div className="space-y-2">
