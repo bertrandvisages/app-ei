@@ -94,6 +94,11 @@ export default function DossiersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contribution | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // Grille de couverture (matrice sujet × thème) + filtre du tableau
+  const [showGrid, setShowGrid] = useState(false);
+  const [filterSujet, setFilterSujet] = useState<string | null>(null);
+  const [filterTheme, setFilterTheme] = useState<string | null>(null);
+  const [filterUnclassified, setFilterUnclassified] = useState(false);
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [imageStyle, setImageStyle] = useState("");
   const [candidates, setCandidates] = useState<Record<string, ImageCandidate[]>>({});
@@ -240,6 +245,59 @@ export default function DossiersPage() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contributions, sortKey, sortDir, authors]);
+
+  // Compteurs de la grille de couverture : par case (sujet×thème), par ligne
+  // (sujet, tous thèmes), par colonne (thème, tous sujets) + non classés.
+  const gridCounts = useMemo(() => {
+    const cell: Record<string, number> = {};
+    const row: Record<string, number> = {};
+    const col: Record<string, number> = {};
+    let unclassified = 0;
+    for (const c of contributions) {
+      if (c.sujet) row[c.sujet] = (row[c.sujet] ?? 0) + 1;
+      if (c.theme) col[c.theme] = (col[c.theme] ?? 0) + 1;
+      if (c.sujet && c.theme)
+        cell[`${c.sujet}|${c.theme}`] = (cell[`${c.sujet}|${c.theme}`] ?? 0) + 1;
+      if (!c.sujet && !c.theme) unclassified++;
+    }
+    return { cell, row, col, unclassified };
+  }, [contributions]);
+
+  // Tableau filtré par la grille (sinon = tout, trié)
+  const filtered = useMemo(() => {
+    if (filterUnclassified)
+      return sorted.filter((c) => !c.sujet && !c.theme);
+    let list = sorted;
+    if (filterSujet) list = list.filter((c) => c.sujet === filterSujet);
+    if (filterTheme) list = list.filter((c) => c.theme === filterTheme);
+    return list;
+  }, [sorted, filterSujet, filterTheme, filterUnclassified]);
+
+  const clearFilter = () => {
+    setFilterSujet(null);
+    setFilterTheme(null);
+    setFilterUnclassified(false);
+  };
+  const toggleCellFilter = (sujet: string, theme: string) => {
+    if (filterSujet === sujet && filterTheme === theme && !filterUnclassified) {
+      clearFilter();
+    } else {
+      setFilterUnclassified(false);
+      setFilterSujet(sujet);
+      setFilterTheme(theme);
+    }
+  };
+  const toggleSujetFilter = (sujet: string) => {
+    setFilterUnclassified(false);
+    setFilterTheme(null);
+    setFilterSujet((prev) => (prev === sujet ? null : sujet));
+  };
+  const toggleThemeFilter = (theme: string) => {
+    setFilterUnclassified(false);
+    setFilterSujet(null);
+    setFilterTheme((prev) => (prev === theme ? null : theme));
+  };
+  const hasFilter = !!(filterSujet || filterTheme || filterUnclassified);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -783,6 +841,138 @@ export default function DossiersPage() {
         </Card>
       )}
 
+      {/* Grille de couverture éditoriale (matrice sujet × thème) */}
+      <div className="rounded-lg border bg-card">
+        <button
+          type="button"
+          onClick={() => setShowGrid((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50"
+        >
+          <span>
+            Couverture éditoriale
+            <span className="text-muted-foreground font-normal">
+              {" "}· {contributions.length} dossiers
+              {gridCounts.unclassified > 0 &&
+                ` · ${gridCounts.unclassified} non classé${gridCounts.unclassified > 1 ? "s" : ""}`}
+            </span>
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {showGrid ? "Masquer ▲" : "Afficher ▾"}
+          </span>
+        </button>
+        {showGrid && (
+          <div className="border-t p-4 overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="p-2 text-left"></th>
+                  {THEMES.map((t) => (
+                    <th
+                      key={t.value}
+                      onClick={() => toggleThemeFilter(t.value)}
+                      className={`p-2 text-center font-medium cursor-pointer hover:bg-muted whitespace-nowrap ${
+                        filterTheme === t.value && !filterSujet ? "bg-[#E35205]/15 text-[#E35205]" : "text-muted-foreground"
+                      }`}
+                      title={`Filtrer : ${t.label}`}
+                    >
+                      {t.label}
+                    </th>
+                  ))}
+                  <th className="p-2 text-center font-semibold text-muted-foreground">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SUJETS.map((s) => (
+                  <tr key={s.value} className="border-t">
+                    <th
+                      onClick={() => toggleSujetFilter(s.value)}
+                      className={`p-2 text-left font-medium cursor-pointer hover:bg-muted whitespace-nowrap ${
+                        filterSujet === s.value && !filterTheme ? "bg-[#E35205]/15 text-[#E35205]" : ""
+                      }`}
+                      title={`Filtrer : ${s.label}`}
+                    >
+                      {s.label}
+                    </th>
+                    {THEMES.map((t) => {
+                      const n = gridCounts.cell[`${s.value}|${t.value}`] ?? 0;
+                      const active =
+                        filterSujet === s.value && filterTheme === t.value && !filterUnclassified;
+                      return (
+                        <td
+                          key={t.value}
+                          onClick={() => n > 0 && toggleCellFilter(s.value, t.value)}
+                          className={`p-2 text-center tabular-nums ${
+                            n === 0
+                              ? "text-muted-foreground/25"
+                              : active
+                              ? "bg-[#E35205]/15 text-[#E35205] font-semibold ring-1 ring-[#E35205] cursor-pointer"
+                              : "font-semibold cursor-pointer hover:bg-muted"
+                          }`}
+                        >
+                          {n === 0 ? "·" : n}
+                        </td>
+                      );
+                    })}
+                    <td className="p-2 text-center font-semibold text-muted-foreground tabular-nums">
+                      {gridCounts.row[s.value] ?? 0}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t">
+                  <th className="p-2 text-left font-semibold text-muted-foreground">Total</th>
+                  {THEMES.map((t) => (
+                    <td key={t.value} className="p-2 text-center font-semibold text-muted-foreground tabular-nums">
+                      {gridCounts.col[t.value] ?? 0}
+                    </td>
+                  ))}
+                  <td className="p-2 text-center font-bold tabular-nums">{contributions.length}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+              <span>Clique une case, une ligne ou une colonne pour filtrer. « · » = trou éditorial.</span>
+              {gridCounts.unclassified > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterSujet(null);
+                    setFilterTheme(null);
+                    setFilterUnclassified(true);
+                  }}
+                  className="text-amber-600 hover:underline font-medium"
+                >
+                  Voir les {gridCounts.unclassified} non classé{gridCounts.unclassified > 1 ? "s" : ""}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Barre de filtre actif */}
+      {hasFilter && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Filtre actif :</span>
+          {filterUnclassified && (
+            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium">Non classé</span>
+          )}
+          {filterSujet && (
+            <span className="px-2 py-0.5 rounded bg-[#E35205]/10 text-[#E35205] text-xs font-medium">
+              {sujetLabel(filterSujet)}
+            </span>
+          )}
+          {filterTheme && (
+            <span className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-xs font-medium">
+              {themeLabel(filterTheme)}
+            </span>
+          )}
+          <span className="text-muted-foreground text-xs">({filtered.length})</span>
+          <button onClick={clearFilter} className="text-xs underline text-muted-foreground hover:text-foreground">
+            Réinitialiser
+          </button>
+        </div>
+      )}
+
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -805,14 +995,14 @@ export default function DossiersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                  Aucun dossier
+                  {hasFilter ? "Aucun dossier pour ce filtre" : "Aucun dossier"}
                 </TableCell>
               </TableRow>
             ) : (
-              sorted.map((contrib) => (
+              filtered.map((contrib) => (
                 <>
                   <TableRow
                     key={contrib.id}
