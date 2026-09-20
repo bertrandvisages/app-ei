@@ -110,6 +110,7 @@ export default function DossiersPage() {
   const [genCandidates, setGenCandidates] = useState<Record<string, string[]>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [generatingSeo, setGeneratingSeo] = useState(false);
+  const [suggestingClass, setSuggestingClass] = useState(false);
 
   // Restore session state on mount
   useEffect(() => {
@@ -165,6 +166,8 @@ export default function DossiersPage() {
   const [newAuthorId, setNewAuthorId] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
+  const [newTheme, setNewTheme] = useState("");
+  const [newSujet, setNewSujet] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -215,6 +218,31 @@ export default function DossiersPage() {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
       setGeneratingSeo(false);
+    }
+  };
+
+  const handleSuggestClassification = async () => {
+    if (!editingId) return;
+    if (!editTitle.trim()) {
+      toast.error("Renseigne d'abord un titre");
+      return;
+    }
+    setSuggestingClass(true);
+    try {
+      const res = await fetch("/api/generate-classification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle, content: editContent }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur");
+      if (data.sujet) setEditSujet(data.sujet);
+      if (data.theme) setEditTheme(data.theme);
+      toast.success("Classement suggéré — vérifie puis Sauvegarde");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSuggestingClass(false);
     }
   };
 
@@ -312,6 +340,8 @@ export default function DossiersPage() {
           author_id: newAuthorId || undefined,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
+          theme: newTheme || null,
+          sujet: newSujet || null,
         }),
       });
       const data = await res.json();
@@ -324,6 +354,8 @@ export default function DossiersPage() {
       setNewAuthorId("");
       setNewSeoTitle("");
       setNewSeoDesc("");
+      setNewTheme("");
+      setNewSujet("");
       const res2 = await fetch("/api/wordpress/dossiers");
       if (res2.ok) setContributions(await res2.json());
     } catch (err) {
@@ -657,6 +689,15 @@ export default function DossiersPage() {
   };
 
   const handlePublish = async (id: string) => {
+    const c = contributions.find((x) => x.id === id);
+    if (
+      (!c?.theme || !c?.sujet) &&
+      !window.confirm(
+        "Ce dossier n'est pas entièrement classé (univers + angle) : il ne remontera pas dans les hubs du site. Publier quand même ?"
+      )
+    ) {
+      return;
+    }
     setPublishing(id);
     try {
       const res = await fetch("/api/wordpress/dossiers", {
@@ -690,6 +731,14 @@ export default function DossiersPage() {
       toast.error("La date programmée doit être dans le futur");
       return;
     }
+    if (
+      (!editSujet || !editTheme) &&
+      !window.confirm(
+        "Ce dossier n'est pas entièrement classé (univers + angle) : il ne remontera pas dans les hubs du site. Programmer quand même ?"
+      )
+    ) {
+      return;
+    }
     setScheduling(editingId);
     try {
       const res = await fetch("/api/wordpress/dossiers", {
@@ -699,6 +748,8 @@ export default function DossiersPage() {
           id: editingId,
           status: "programme",
           scheduled_publish_at: iso,
+          theme: editTheme || null,
+          sujet: editSujet || null,
         }),
       });
       const data = await res.json();
@@ -709,7 +760,14 @@ export default function DossiersPage() {
       );
       setContributions(contributions.map((c) =>
         c.id === editingId
-          ? { ...c, status: "programme", scheduled_publish_at: iso, is_modified: false }
+          ? {
+              ...c,
+              status: "programme",
+              scheduled_publish_at: iso,
+              theme: editTheme || null,
+              sujet: editSujet || null,
+              is_modified: false,
+            }
           : c
       ));
     } catch (err) {
@@ -809,6 +867,41 @@ export default function DossiersPage() {
                   content={newContent}
                   onChange={setNewContent}
                 />
+              </div>
+              <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Classement</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Sujet (univers)</Label>
+                    <select
+                      value={newSujet}
+                      onChange={(e) => setNewSujet(e.target.value)}
+                      className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">— Non classé —</option>
+                      {SUJETS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Thème (angle)</Label>
+                    <select
+                      value={newTheme}
+                      onChange={(e) => setNewTheme(e.target.value)}
+                      className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">— Non classé —</option>
+                      {THEMES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
               <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
@@ -1283,9 +1376,22 @@ export default function DossiersPage() {
                             </div>
                           </div>
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Classement
-                            </p>
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Classement
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={handleSuggestClassification}
+                                disabled={suggestingClass}
+                                title="Suggérer l'univers et l'angle via Gemini"
+                              >
+                                {suggestingClass ? "Analyse…" : "Suggérer le classement"}
+                              </Button>
+                            </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1">
                                 <Label className="text-xs">Thème (angle)</Label>

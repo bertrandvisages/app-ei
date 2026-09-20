@@ -117,6 +117,8 @@ export async function POST(request: Request) {
     description: body.content ?? null,
     author_id: body.author_id ?? null,
     status: "draft" as const,
+    theme: body.theme || null,
+    sujet: body.sujet || null,
   };
 
   const { data, error } = await supabase
