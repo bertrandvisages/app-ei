@@ -356,11 +356,9 @@ export default function AuteursPage() {
             {authors.length} auteur{authors.length > 1 ? "s" : ""} sur lenoncote.fr
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowForm(!showForm)}>
-            {showForm ? "Annuler" : "Nouvel auteur"}
-          </Button>
-        )}
+        <Button onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Annuler" : "Nouvel auteur"}
+        </Button>
       </div>
 
       {showForm && (

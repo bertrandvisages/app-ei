@@ -76,7 +76,8 @@ export async function GET() {
   return NextResponse.json((data as AuthorRow[]).map(toApiShape));
 }
 
-// POST : création d'un auteur (admin uniquement)
+// POST : création d'un auteur (tout éditeur authentifié — cohérent avec
+// PUT/DELETE qui ne sont pas non plus réservés à l'admin).
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -84,16 +85,6 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
   const body = await request.json();
