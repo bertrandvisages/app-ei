@@ -20,13 +20,14 @@ type ContribRow = {
   homepage: boolean;
   status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
+  first_published_at: string | null;
   scheduled_publish_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, scheduled_publish_at, created_at, updated_at";
+  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, created_at, updated_at";
 
 // Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
 function isModifiedSincePublish(c: ContribRow): boolean {
@@ -46,6 +47,7 @@ function toApiShape(c: ContribRow) {
     author: c.author_id,
     date: c.published_at ?? c.created_at,
     published_at: c.published_at,
+    first_published_at: c.first_published_at,
     created_at: c.created_at,
     updated_at: c.updated_at,
     scheduled_publish_at: c.scheduled_publish_at,

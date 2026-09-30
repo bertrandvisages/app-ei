@@ -39,6 +39,7 @@ interface Contribution {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  first_published_at: string | null;
   scheduled_publish_at: string | null;
   theme: string | null;
   sujet: string | null;
@@ -711,7 +712,14 @@ export default function DossiersPage() {
       toast.success("Marqué comme publié — clique « Mettre à jour le site » pour diffuser");
       // Republish remet le flag is_modified à false (synchro updated_at/published_at)
       setContributions(contributions.map((c) =>
-        c.id === id ? { ...c, status: "publish", is_modified: false } : c
+        c.id === id
+          ? {
+              ...c,
+              status: "publish",
+              is_modified: false,
+              first_published_at: c.first_published_at ?? new Date().toISOString(),
+            }
+          : c
       ));
       window.dispatchEvent(new Event(PENDING_DEPLOY_EVENT));
     } catch (err) {
@@ -1156,9 +1164,9 @@ export default function DossiersPage() {
                           ) : (
                             <span className="text-xs text-green-600 font-medium">Publié</span>
                           )}
-                          {contrib.published_at && (
+                          {(contrib.first_published_at ?? contrib.published_at) && (
                             <div className="text-[11px] text-muted-foreground">
-                              {new Date(contrib.published_at).toLocaleDateString("fr-FR")}
+                              {new Date(contrib.first_published_at ?? contrib.published_at!).toLocaleDateString("fr-FR")}
                             </div>
                           )}
                         </div>

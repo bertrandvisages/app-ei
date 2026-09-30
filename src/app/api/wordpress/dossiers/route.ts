@@ -19,6 +19,7 @@ type DossierRow = {
   homepage: boolean;
   status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
+  first_published_at: string | null;
   scheduled_publish_at: string | null;
   theme: string | null;
   sujet: string | null;
@@ -27,7 +28,7 @@ type DossierRow = {
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, homepage, status, published_at, scheduled_publish_at, theme, sujet, created_at, updated_at";
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -45,6 +46,7 @@ function toApiShape(d: DossierRow) {
     author: d.author_id,
     date: d.published_at ?? d.created_at,
     published_at: d.published_at,
+    first_published_at: d.first_published_at,
     created_at: d.created_at,
     updated_at: d.updated_at,
     scheduled_publish_at: d.scheduled_publish_at,
