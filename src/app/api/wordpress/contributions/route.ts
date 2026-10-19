@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateSlug } from "@/lib/slug";
+import { generateSlug, uniqueSlug } from "@/lib/slug";
 import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
 import { decodeEntities } from "@/lib/utils";
 
@@ -111,7 +111,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Titre et auteur requis" }, { status: 400 });
   }
 
-  const slug = generateSlug(body.title);
+  // Deux opinions au titre identique produiraient le meme slug, donc la meme
+  // URL, et le build Astro n'en servirait qu'un. On suffixe au besoin.
+  const slug = await uniqueSlug(generateSlug(body.title), async (candidate) => {
+    const { data } = await supabase
+      .from("contributions")
+      .select("id")
+      .eq("slug", candidate)
+      .maybeSingle();
+    return !!data;
+  });
 
   const insertPayload = {
     slug,
@@ -156,6 +165,33 @@ export async function PUT(request: Request) {
 
   const updatePayload: Record<string, unknown> = {};
   if (body.title !== undefined) updatePayload.title = body.title;
+  // Slug : JAMAIS recalcule depuis le titre. Retitrer un contenu publie
+  // casserait sinon son URL, ses liens entrants et son indexation sans que
+  // personne ne l'ait demande — c'est volontaire. L'editeur le change
+  // explicitement, et on normalise ce qu'il tape pour qu'un espace ou un
+  // accent ne produise pas une URL invalide.
+  if (body.slug !== undefined) {
+    const slug = generateSlug(body.slug);
+    if (!slug) {
+      return NextResponse.json(
+        { error: "Le slug est vide après normalisation" },
+        { status: 400 }
+      );
+    }
+    const { data: clash } = await supabase
+      .from("contributions")
+      .select("id")
+      .eq("slug", slug)
+      .neq("id", body.id)
+      .maybeSingle();
+    if (clash) {
+      return NextResponse.json(
+        { error: `Le slug « ${slug} » est déjà pris par une autre opinion` },
+        { status: 409 }
+      );
+    }
+    updatePayload.slug = slug;
+  }
   if (body.content !== undefined) updatePayload.content = body.content;
   if (body.citation !== undefined) updatePayload.citation = body.citation;
   // Si on remplace la cover, on récupère l'ancienne URL pour la supprimer

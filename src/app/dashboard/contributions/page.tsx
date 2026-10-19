@@ -17,7 +17,11 @@ import { RichEditorFull } from "@/components/rich-editor-full";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { PENDING_DEPLOY_EVENT } from "@/components/header";
 import { createClient } from "@/lib/supabase/client";
+import { generateSlug } from "@/lib/slug";
 import { toast } from "sonner";
+
+// Pour afficher a l'editeur l'URL que produira le slug qu'il tape.
+const PUBLIC_SITE = "https://www.lenoncote.fr";
 
 interface Author {
   id: string;
@@ -82,6 +86,7 @@ export default function ContributionsPage() {
   const [editCoverUrl, setEditCoverUrl] = useState("");
   const [genCandidates, setGenCandidates] = useState<Record<string, string[]>>({});
   const [generatingCitation, setGeneratingCitation] = useState(false);
+  const [editSlug, setEditSlug] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [editScheduledAt, setEditScheduledAt] = useState("");
@@ -336,6 +341,7 @@ export default function ContributionsPage() {
         };
       });
       setImageStyle("");
+      setEditSlug(contrib.slug || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
       setEditScheduledAt(
@@ -449,6 +455,9 @@ export default function ContributionsPage() {
     try {
       const currentContrib = contributions.find((c) => c.id === editingId);
       const coverChanged = editCoverUrl !== (currentContrib?.image || "");
+      // On n'envoie le slug que s'il a bouge : sinon chaque sauvegarde
+      // declencherait une requete de collision pour rien.
+      const slugChanged = editSlug !== (currentContrib?.slug || "");
 
       const res = await fetch("/api/wordpress/contributions", {
         method: "PUT",
@@ -463,6 +472,7 @@ export default function ContributionsPage() {
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
+          ...(slugChanged ? { slug: editSlug } : {}),
         }),
       });
       const data = await res.json();
@@ -485,6 +495,10 @@ export default function ContributionsPage() {
               seo_description: editSeoDesc,
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
+              // Le serveur normalise ce qu'on lui envoie : on reflete la
+              // meme valeur localement pour que le champ ne reaffiche pas
+              // la saisie brute apres sauvegarde.
+              ...(slugChanged ? { slug: generateSlug(editSlug) } : {}),
             }
           : c
       ));
@@ -1211,6 +1225,38 @@ export default function ContributionsPage() {
                               />
                               <p className="text-[10px] text-muted-foreground text-right">{editSeoDesc.length}/160</p>
                             </div>
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Adresse de la page
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => setEditSlug(generateSlug(editTitle))}
+                                title="Recalculer l'adresse à partir du titre actuel"
+                              >
+                                Reprendre le titre
+                              </Button>
+                            </div>
+                            <Input
+                              value={editSlug}
+                              onChange={(e) => setEditSlug(e.target.value)}
+                              placeholder="le-titre-de-lopinion"
+                            />
+                            <p className="text-[11px] text-muted-foreground break-all">
+                              {PUBLIC_SITE}/opinion/{generateSlug(editSlug) || "…"}/
+                            </p>
+                            {editSlug !== contrib.slug && contrib.status === "publish" && (
+                              <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                                Cette opinion est en ligne : son ancienne adresse
+                                deviendra introuvable. Pose une redirection 301
+                                dans le nginx.conf du site avant de republier.
+                              </p>
+                            )}
                           </div>
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
