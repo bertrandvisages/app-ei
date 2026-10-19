@@ -15,6 +15,7 @@ type DossierRow = {
   seo_title: string | null;
   seo_description: string | null;
   author_id: string | null;
+  author_id_2: string | null;
   sort_order: number;
   homepage: boolean;
   status: "draft" | "programme" | "publie" | "archive";
@@ -28,7 +29,7 @@ type DossierRow = {
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, created_at, updated_at";
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, author_id_2, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -44,6 +45,7 @@ function toApiShape(d: DossierRow) {
     status: d.status === "publie" ? "publish" : d.status,
     is_modified: isModifiedSincePublish(d),
     author: d.author_id,
+    author2: d.author_id_2,
     date: d.published_at ?? d.created_at,
     published_at: d.published_at,
     first_published_at: d.first_published_at,
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
     title: body.title,
     description: body.content ?? null,
     author_id: body.author_id ?? null,
+    author_id_2: body.author_id_2 ?? null,
     status: "draft" as const,
     theme: body.theme || null,
     sujet: body.sujet || null,
@@ -174,6 +177,8 @@ export async function PUT(request: Request) {
     }
   }
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
+  if (body.author_id_2 !== undefined)
+    updatePayload.author_id_2 = body.author_id_2 || null;
   if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
   if (body.homepage !== undefined) updatePayload.homepage = body.homepage;
   // Champs SEO : on stocke null si l'éditeur vide la case pour activer

@@ -35,6 +35,7 @@ interface Contribution {
   is_modified?: boolean;
   homepage: boolean;
   author: string;
+  author2: string | null;
   date: string;
   created_at: string;
   updated_at: string;
@@ -81,6 +82,7 @@ export default function DossiersPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editAuthorId, setEditAuthorId] = useState<string>("");
+  const [editAuthorId2, setEditAuthorId2] = useState<string>("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
   const [editTheme, setEditTheme] = useState("");
@@ -165,6 +167,7 @@ export default function DossiersPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newAuthorId, setNewAuthorId] = useState<string>("");
+  const [newAuthorId2, setNewAuthorId2] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
   const [newTheme, setNewTheme] = useState("");
@@ -339,6 +342,7 @@ export default function DossiersPage() {
           title: newTitle,
           content: newContent,
           author_id: newAuthorId || undefined,
+          author_id_2: newAuthorId2 || null,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
           theme: newTheme || null,
@@ -353,6 +357,7 @@ export default function DossiersPage() {
       setNewTitle("");
       setNewContent("");
       setNewAuthorId("");
+      setNewAuthorId2("");
       setNewSeoTitle("");
       setNewSeoDesc("");
       setNewTheme("");
@@ -373,6 +378,7 @@ export default function DossiersPage() {
       setEditTitle(contrib.title);
       setEditContent(contrib.content);
       setEditAuthorId(contrib.author || "");
+      setEditAuthorId2(contrib.author2 || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
       setEditTheme(contrib.theme || "");
@@ -525,6 +531,7 @@ export default function DossiersPage() {
           title: editTitle,
           content: editContent,
           author_id: editAuthorId || null,
+          author_id_2: editAuthorId2 || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           theme: editTheme || null,
@@ -544,6 +551,7 @@ export default function DossiersPage() {
               title: editTitle,
               content: editContent,
               author: editAuthorId,
+              author2: editAuthorId2 || null,
               // On resynchronise le SEO dans l'etat local, sinon en rouvrant
               // l'edition sans recharger la page le formulaire relit l'ancien
               // SEO (vide pour un dossier recent) et il semble avoir disparu.
@@ -861,6 +869,21 @@ export default function DossiersPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Auteur 2 (optionnel)</Label>
+                  <select
+                    value={newAuthorId2}
+                    onChange={(e) => setNewAuthorId2(e.target.value)}
+                    className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Aucun</option>
+                    {authors.map((a) => (
+                      <option key={a.id} value={a.id.toString()}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label>Titre</Label>
                   <Input
                     value={newTitle}
@@ -1145,6 +1168,7 @@ export default function DossiersPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {getAuthorName(contrib.author)}
+                      {contrib.author2 ? ` & ${getAuthorName(contrib.author2)}` : ""}
                     </TableCell>
                     <TableCell className="text-[11px] text-muted-foreground leading-tight">
                       <div>
@@ -1372,6 +1396,21 @@ export default function DossiersPage() {
                               <select
                                 value={editAuthorId}
                                 onChange={(e) => setEditAuthorId(e.target.value)}
+                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              >
+                                <option value="">— Aucun —</option>
+                                {authors.map((a) => (
+                                  <option key={a.id} value={a.id.toString()}>
+                                    {a.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Auteur 2</Label>
+                              <select
+                                value={editAuthorId2}
+                                onChange={(e) => setEditAuthorId2(e.target.value)}
                                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                               >
                                 <option value="">— Aucun —</option>

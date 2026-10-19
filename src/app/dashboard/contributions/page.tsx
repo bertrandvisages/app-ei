@@ -35,6 +35,7 @@ interface Contribution {
   is_modified?: boolean;
   homepage: boolean;
   author: string;
+  author2: string | null;
   date: string;
   created_at: string;
   updated_at: string;
@@ -77,6 +78,7 @@ export default function ContributionsPage() {
   const [editContent, setEditContent] = useState("");
   const [editCitation, setEditCitation] = useState("");
   const [editAuthorId, setEditAuthorId] = useState<string>("");
+  const [editAuthorId2, setEditAuthorId2] = useState<string>("");
   const [editCoverUrl, setEditCoverUrl] = useState("");
   const [genCandidates, setGenCandidates] = useState<Record<string, string[]>>({});
   const [generatingCitation, setGeneratingCitation] = useState(false);
@@ -95,6 +97,7 @@ export default function ContributionsPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newAuthorId, setNewAuthorId] = useState<string>("");
+  const [newAuthorId2, setNewAuthorId2] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -253,6 +256,7 @@ export default function ContributionsPage() {
           title: newTitle,
           content: newContent,
           author_id: newAuthorId,
+          author_id_2: newAuthorId2 || null,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
         }),
@@ -265,6 +269,7 @@ export default function ContributionsPage() {
       setNewTitle("");
       setNewContent("");
       setNewAuthorId("");
+      setNewAuthorId2("");
       setNewSeoTitle("");
       setNewSeoDesc("");
       const res2 = await fetch("/api/wordpress/contributions");
@@ -307,6 +312,7 @@ export default function ContributionsPage() {
       setEditContent(contrib.content);
       setEditCitation(contrib.citation || "");
       setEditAuthorId(contrib.author || "");
+      setEditAuthorId2(contrib.author2 || "");
       setEditCoverUrl(contrib.image || "");
       // Seed les vignettes :
       // - si on a deja des candidates en session (qu'on a generes/uploades
@@ -453,6 +459,7 @@ export default function ContributionsPage() {
           content: editContent,
           citation: editCitation,
           author_id: editAuthorId || null,
+          author_id_2: editAuthorId2 || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
           ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
@@ -471,6 +478,7 @@ export default function ContributionsPage() {
               content: editContent,
               citation: editCitation,
               author: editAuthorId,
+              author2: editAuthorId2 || null,
               // Resync du SEO local, sinon rouvrir l'edition sans recharger la
               // page reaffiche l'ancien SEO (vide) et il semble disparaitre.
               seo_title: editSeoTitle,
@@ -765,6 +773,21 @@ export default function ContributionsPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Auteur 2 (optionnel)</Label>
+                  <select
+                    value={newAuthorId2}
+                    onChange={(e) => setNewAuthorId2(e.target.value)}
+                    className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Aucun</option>
+                    {authors.map((a) => (
+                      <option key={a.id} value={a.id.toString()}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <Label>Titre</Label>
                   <Input
                     value={newTitle}
@@ -865,6 +888,7 @@ export default function ContributionsPage() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {getAuthorName(contrib.author)}
+                      {contrib.author2 ? ` & ${getAuthorName(contrib.author2)}` : ""}
                     </TableCell>
                     <TableCell className="text-[11px] text-muted-foreground leading-tight">
                       <div>
@@ -1091,6 +1115,21 @@ export default function ContributionsPage() {
                               <select
                                 value={editAuthorId}
                                 onChange={(e) => setEditAuthorId(e.target.value)}
+                                className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              >
+                                <option value="">— Aucun —</option>
+                                {authors.map((a) => (
+                                  <option key={a.id} value={a.id.toString()}>
+                                    {a.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-muted-foreground">Auteur 2</Label>
+                              <select
+                                value={editAuthorId2}
+                                onChange={(e) => setEditAuthorId2(e.target.value)}
                                 className="flex h-9 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                               >
                                 <option value="">— Aucun —</option>

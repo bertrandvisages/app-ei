@@ -9,6 +9,7 @@ type ContribRow = {
   wp_id: number | null;
   dossier_id: string | null;
   author_id: string | null;
+  author_id_2: string | null;
   slug: string;
   title: string;
   content: string | null;
@@ -27,7 +28,7 @@ type ContribRow = {
 };
 
 const SELECT_COLS =
-  "id, wp_id, dossier_id, author_id, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, created_at, updated_at";
+  "id, wp_id, dossier_id, author_id, author_id_2, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, created_at, updated_at";
 
 // Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
 function isModifiedSincePublish(c: ContribRow): boolean {
@@ -45,6 +46,7 @@ function toApiShape(c: ContribRow) {
     status: c.status === "publie" ? "publish" : c.status, // map publié vers vocabulaire WP du front
     is_modified: isModifiedSincePublish(c),
     author: c.author_id,
+    author2: c.author_id_2,
     date: c.published_at ?? c.created_at,
     published_at: c.published_at,
     first_published_at: c.first_published_at,
@@ -117,6 +119,7 @@ export async function POST(request: Request) {
     content: body.content ?? null,
     citation: body.citation ?? null,
     author_id: String(body.author_id),
+    author_id_2: body.author_id_2 ?? null,
     dossier_id: body.dossier_id ?? null,
     status: "draft" as const,
   };
@@ -174,6 +177,8 @@ export async function PUT(request: Request) {
   }
   if (body.dossier_id !== undefined) updatePayload.dossier_id = body.dossier_id;
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
+  if (body.author_id_2 !== undefined)
+    updatePayload.author_id_2 = body.author_id_2 || null;
   if (body.homepage !== undefined) updatePayload.homepage = body.homepage;
   // Champs SEO : on stocke null si l'éditeur vide la case pour activer
   // le fallback côté site Astro (qui retombe sur title/citation/excerpt si null).
