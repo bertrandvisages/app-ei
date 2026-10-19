@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { toAvif } from "@/lib/image";
+import { toAvif, toSocialJpeg, socialPath } from "@/lib/image";
 
 const BUCKET = "media";
 const MODEL = "gemini-3-pro-image-preview";
@@ -288,6 +288,25 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
+  }
+
+
+  // Jumeau social : JPEG 1200x630 stocke a cote de l'AVIF, pour les apercus
+  // LinkedIn / Facebook / X qui n'affichent pas l'AVIF. Best-effort absolu :
+  // un echec ici ne doit JAMAIS faire echouer l'upload principal, le site
+  // retombant alors sur og-default.jpg.
+  try {
+    const social = await toSocialJpeg(geminiBuffer, geminiMime);
+    if (social) {
+      await supabase.storage
+        .from(BUCKET)
+        .upload(socialPath(path), social, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+    }
+  } catch (err) {
+    console.warn("[upload] jumeau social non genere :", err);
   }
 
   const {
