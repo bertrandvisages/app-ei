@@ -246,11 +246,55 @@ Aucun texte avant ou après le JSON, pas de markdown, pas de code fence.`;
 
   // Garde-fous longueur : on garde les valeurs en l'état mais on coupe
   // proprement si Gemini dépasse (rare avec le prompt actuel).
+  //
+  // Couper au dernier espace ne casse jamais un mot, mais ça tronque la
+  // phrase. « Entrepreneurs et private equity : une relation en pleine » et
+  // « Liquidité du non coté : gérer l'illiquidité en private » sont partis en
+  // production comme ça : dans un résultat Google, ils se lisent comme une
+  // page cassée.
+  //
+  // On recule donc jusqu'à une fin de groupe. Un mot-outil en dernière
+  // position ne tient pas tout seul. Une préposition en avant-dernière
+  // position introduit un complément qu'on vient justement de couper, donc on
+  // retire les deux. Un déterminant, lui, forme un groupe complet avec le nom
+  // qui le suit (« une relation »), on n'y touche pas.
+  const ORPHELINS = new Set([
+    "a", "au", "aux", "avec", "ce", "ces", "cet", "cette", "chez", "contre",
+    "dans", "de", "des", "donc", "dont", "du", "en", "entre", "et", "la", "le",
+    "les", "leur", "leurs", "ma", "mais", "mes", "moins", "mon", "ni", "nos",
+    "notre", "ou", "par", "plus", "pour", "pres", "qui", "que", "sa", "sans",
+    "se", "selon", "ses", "son", "sous", "sur", "ta", "tes", "ton", "tres",
+    "un", "une", "vers", "vos", "votre",
+  ]);
+  // Volontairement sans « de », « des » ni « du » : ils forment un groupe
+  // complet avec le nom qui suit (« la carte des deals »), comme un
+  // déterminant. Les retirer amputait la phrase au lieu de la rétablir.
+  const PREPOSITIONS = new Set([
+    "a", "au", "aux", "avec", "chez", "contre", "dans",
+    "en", "entre", "par", "pour", "pres", "sans", "selon", "sous", "sur", "vers",
+  ]);
+  const mot = (w: string) =>
+    w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z']/g, "");
+
   const trim = (s: string, max: number) => {
     if (s.length <= max) return s;
     const cut = s.slice(0, max);
     const lastSpace = cut.lastIndexOf(" ");
-    return (lastSpace > max - 15 ? cut.slice(0, lastSpace) : cut).trim();
+    const mots = (lastSpace > max - 15 ? cut.slice(0, lastSpace) : cut).trim().split(/\s+/);
+
+    // On ne descend pas sous 4 mots : en dessous, le texte perdrait le mot
+    // clé, ce qui est pire qu'une formule un peu sèche.
+    while (mots.length > 4) {
+      const dernier = mots[mots.length - 1];
+      if (ORPHELINS.has(mot(dernier))) { mots.pop(); continue; }
+      // Une majuscule signale un nom propre : « en France », « chez
+      // Bpifrance » sont des groupes complets, on les garde.
+      const nomPropre = /^[A-ZÀ-Þ]/.test(dernier);
+      if (!nomPropre && PREPOSITIONS.has(mot(mots[mots.length - 2]))) { mots.splice(-2); continue; }
+      break;
+    }
+    // Ponctuation laissée orpheline par la coupe.
+    return mots.join(" ").replace(/[\s,;:.–-]+$/, "").trim();
   };
 
   return NextResponse.json({
