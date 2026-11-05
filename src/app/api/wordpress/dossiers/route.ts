@@ -24,12 +24,13 @@ type DossierRow = {
   scheduled_publish_at: string | null;
   theme: string | null;
   sujet: string | null;
+  revised_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, author_id_2, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, created_at, updated_at";
+  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, author_id_2, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, revised_at, created_at, updated_at";
 
 function isModifiedSincePublish(d: DossierRow): boolean {
   if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
@@ -52,6 +53,7 @@ function toApiShape(d: DossierRow) {
     created_at: d.created_at,
     updated_at: d.updated_at,
     scheduled_publish_at: d.scheduled_publish_at,
+    revised_at: d.revised_at,
     theme: d.theme,
     sujet: d.sujet,
     link: "",
@@ -223,6 +225,10 @@ export async function PUT(request: Request) {
     updatePayload.seo_title = body.seo_title || null;
   if (body.seo_description !== undefined)
     updatePayload.seo_description = body.seo_description || null;
+  // Date de mise a jour editoriale, saisie a la main. null = jamais mise a
+  // jour : le site n'affiche alors que la date de publication.
+  if (body.revised_at !== undefined)
+    updatePayload.revised_at = body.revised_at || null;
   // Classement matriciel : null si l'éditeur remet « Non classé ».
   if (body.theme !== undefined) updatePayload.theme = body.theme || null;
   if (body.sujet !== undefined) updatePayload.sujet = body.sujet || null;

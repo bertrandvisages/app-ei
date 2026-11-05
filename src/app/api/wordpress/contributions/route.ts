@@ -23,12 +23,13 @@ type ContribRow = {
   published_at: string | null;
   first_published_at: string | null;
   scheduled_publish_at: string | null;
+  revised_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, dossier_id, author_id, author_id_2, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, created_at, updated_at";
+  "id, wp_id, dossier_id, author_id, author_id_2, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, revised_at, created_at, updated_at";
 
 // Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
 function isModifiedSincePublish(c: ContribRow): boolean {
@@ -53,6 +54,7 @@ function toApiShape(c: ContribRow) {
     created_at: c.created_at,
     updated_at: c.updated_at,
     scheduled_publish_at: c.scheduled_publish_at,
+    revised_at: c.revised_at,
     link: "",
     slug: c.slug,
     image: c.cover_image_url ?? "",
@@ -222,6 +224,10 @@ export async function PUT(request: Request) {
     updatePayload.seo_title = body.seo_title || null;
   if (body.seo_description !== undefined)
     updatePayload.seo_description = body.seo_description || null;
+  // Date de mise a jour editoriale, saisie a la main. null = jamais mise a
+  // jour : le site n'affiche alors que la date de publication.
+  if (body.revised_at !== undefined)
+    updatePayload.revised_at = body.revised_at || null;
   if (body.status !== undefined) {
     // Map: front peut envoyer 'publish' (vocab WP) → on stocke 'publie'
     const s = body.status === "publish" ? "publie" : body.status;

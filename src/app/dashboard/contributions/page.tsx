@@ -46,6 +46,7 @@ interface Contribution {
   published_at: string | null;
   first_published_at: string | null;
   scheduled_publish_at: string | null;
+  revised_at: string | null;
   link: string;
   image: string;
   image_id: number | null;
@@ -71,6 +72,15 @@ function fromLocalInputValue(local: string): string {
   return new Date(local).toISOString();
 }
 
+// Date du jour au format "YYYY-MM-DD" attendu par <input type="date">.
+// Construite depuis les composants locaux et non via toISOString(), qui
+// basculerait en UTC et renverrait la veille en soiree.
+function todayInputValue(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function ContributionsPage() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
@@ -89,6 +99,7 @@ export default function ContributionsPage() {
   const [editSlug, setEditSlug] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
+  const [editRevisedAt, setEditRevisedAt] = useState("");
   const [editScheduledAt, setEditScheduledAt] = useState("");
   const [scheduling, setScheduling] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -344,6 +355,7 @@ export default function ContributionsPage() {
       setEditSlug(contrib.slug || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+      setEditRevisedAt(contrib.revised_at || "");
       setEditScheduledAt(
         contrib.scheduled_publish_at
           ? toLocalInputValue(contrib.scheduled_publish_at)
@@ -471,6 +483,7 @@ export default function ContributionsPage() {
           author_id_2: editAuthorId2 || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
+          revised_at: editRevisedAt || null,
           ...(coverChanged ? { cover_image_url: editCoverUrl || null } : {}),
           ...(slugChanged ? { slug: editSlug } : {}),
         }),
@@ -493,6 +506,7 @@ export default function ContributionsPage() {
               // page reaffiche l'ancien SEO (vide) et il semble disparaitre.
               seo_title: editSeoTitle,
               seo_description: editSeoDesc,
+              revised_at: editRevisedAt || null,
               is_modified: c.status === "publish" ? true : c.is_modified,
               ...(coverChanged ? { image: editCoverUrl } : {}),
               // Le serveur normalise ce qu'on lui envoie : on reflete la
@@ -1257,6 +1271,65 @@ export default function ContributionsPage() {
                                 dans le nginx.conf du site avant de republier.
                               </p>
                             )}
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Date de mise à jour
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              S'affiche sur l'article à côté de la date de
+                              publication, sous la forme « Mis à jour le
+                              5 novembre 2026 ». À laisser vide si cet article
+                              n'a pas été mis à jour : seule la date de
+                              publication apparaît alors.
+                            </p>
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-xs">Date</Label>
+                                <Input
+                                  type="date"
+                                  value={editRevisedAt}
+                                  onChange={(e) => setEditRevisedAt(e.target.value)}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-9"
+                                onClick={() => setEditRevisedAt(todayInputValue())}
+                                title="Mettre la date du jour"
+                              >
+                                Aujourd'hui
+                              </Button>
+                              {editRevisedAt && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs h-9"
+                                  onClick={() => setEditRevisedAt("")}
+                                  title="Retirer la mention de l'article"
+                                >
+                                  Effacer
+                                </Button>
+                              )}
+                            </div>
+                            {editRevisedAt &&
+                              (contrib.first_published_at ?? contrib.published_at) &&
+                              editRevisedAt <
+                                (contrib.first_published_at ??
+                                  contrib.published_at)!.slice(0, 10) && (
+                                <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                                  Cette date est antérieure à la publication du 
+                                  {new Date(
+                                    (contrib.first_published_at ??
+                                      contrib.published_at)!
+                                  ).toLocaleDateString("fr-FR")}
+                                  . Le site ignorera la mention tant que cette opinion 
+                                  gardera une date antérieure.
+                                </p>
+                              )}
                           </div>
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
