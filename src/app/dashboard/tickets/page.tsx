@@ -238,7 +238,7 @@ export default function TicketsPage() {
       </div>
 
       <div className="rounded-lg border bg-background overflow-hidden">
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
               <TableHead>Titre</TableHead>
@@ -265,10 +265,10 @@ export default function TicketsPage() {
                 <>
                   <TableRow key={t.id}>
                     <TableCell>
-                      <p className={`text-sm ${t.status === "non_traite" ? "font-semibold" : ""}`}>
+                      <p className={`text-sm break-words line-clamp-1 ${t.status === "non_traite" ? "font-semibold" : ""}`}>
                         {t.title}
                       </p>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-1 break-all">
                         {t.description}
                       </p>
                     </TableCell>
