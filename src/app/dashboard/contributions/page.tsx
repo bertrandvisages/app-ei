@@ -927,6 +927,12 @@ export default function ContributionsPage() {
                         <span className="text-muted-foreground/70">Modifié&nbsp;: </span>
                         {new Date(contrib.updated_at).toLocaleDateString("fr-FR")}
                       </div>
+                      {contrib.revised_at && (
+                        <div className="text-green-600 font-medium">
+                          <span className="text-green-600/70">Màj&nbsp;: </span>
+                          {new Date(contrib.revised_at).toLocaleDateString("fr-FR")}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {contrib.status === "publish" ? (
@@ -1280,11 +1286,7 @@ export default function ContributionsPage() {
                               S'affiche sur l'article à côté de la date de
                               publication, sous la forme « Mis à jour le
                               5 novembre 2026 », et alimente le dateModified
-                              lu par Google. Laissée vide, le site retombe sur
-                              la date de dernière sauvegarde, qui bouge aussi
-                              quand on ne corrige qu'une virgule :
-                              renseigne-la dès que le fond change, elle est
-                              prioritaire.
+                              lu par Google. Laissée vide, aucune mention n'apparaît et la date de publication fait foi. Renseigne-la uniquement quand le fond est réellement actualisé (une simple sauvegarde ne l'affecte pas).
                             </p>
                             <div className="flex items-end gap-2">
                               <div className="flex-1 space-y-1">
