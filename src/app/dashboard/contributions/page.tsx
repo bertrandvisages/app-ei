@@ -1279,9 +1279,12 @@ export default function ContributionsPage() {
                             <p className="text-[11px] text-muted-foreground">
                               S'affiche sur l'article à côté de la date de
                               publication, sous la forme « Mis à jour le
-                              5 novembre 2026 ». À laisser vide si cet article
-                              n'a pas été mis à jour : seule la date de
-                              publication apparaît alors.
+                              5 novembre 2026 », et alimente le dateModified
+                              lu par Google. Laissée vide, le site retombe sur
+                              la date de dernière sauvegarde, qui bouge aussi
+                              quand on ne corrige qu'une virgule :
+                              renseigne-la dès que le fond change, elle est
+                              prioritaire.
                             </p>
                             <div className="flex items-end gap-2">
                               <div className="flex-1 space-y-1">
