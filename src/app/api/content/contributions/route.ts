@@ -4,70 +4,68 @@ import { generateSlug, uniqueSlug } from "@/lib/slug";
 import { deleteStorageObjectByPublicUrl } from "@/lib/storage";
 import { decodeEntities } from "@/lib/utils";
 
-type DossierRow = {
+type ContribRow = {
   id: string;
   wp_id: number | null;
+  dossier_id: string | null;
+  author_id: string | null;
+  author_id_2: string | null;
   slug: string;
   title: string;
-  description: string | null;
+  content: string | null;
   excerpt: string | null;
+  citation: string | null;
   cover_image_url: string | null;
   seo_title: string | null;
   seo_description: string | null;
-  author_id: string | null;
-  author_id_2: string | null;
-  sort_order: number;
   homepage: boolean;
   status: "draft" | "programme" | "publie" | "archive";
   published_at: string | null;
   first_published_at: string | null;
   scheduled_publish_at: string | null;
-  theme: string | null;
-  sujet: string | null;
   revised_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLS =
-  "id, wp_id, slug, title, description, excerpt, cover_image_url, seo_title, seo_description, author_id, author_id_2, sort_order, homepage, status, published_at, first_published_at, scheduled_publish_at, theme, sujet, revised_at, created_at, updated_at";
+  "id, wp_id, dossier_id, author_id, author_id_2, slug, title, content, excerpt, citation, cover_image_url, seo_title, seo_description, homepage, status, published_at, first_published_at, scheduled_publish_at, revised_at, created_at, updated_at";
 
-function isModifiedSincePublish(d: DossierRow): boolean {
-  if (d.status !== "publie" || !d.published_at || !d.updated_at) return false;
-  return new Date(d.updated_at).getTime() > new Date(d.published_at).getTime() + 2000;
+// Modifié = publié mais updated_at postérieur à published_at (tolérance 2s)
+function isModifiedSincePublish(c: ContribRow): boolean {
+  if (c.status !== "publie" || !c.published_at || !c.updated_at) return false;
+  return new Date(c.updated_at).getTime() > new Date(c.published_at).getTime() + 2000;
 }
 
-// Map Supabase row → shape attendue (rétrocompat WP API)
-function toApiShape(d: DossierRow) {
+// Map Supabase row → shape attendue par le dashboard (rétrocompat WP API)
+function toApiShape(c: ContribRow) {
   return {
-    id: d.id,
-    title: decodeEntities(d.title),
-    content: d.description ?? "",
-    status: d.status === "publie" ? "publish" : d.status,
-    is_modified: isModifiedSincePublish(d),
-    author: d.author_id,
-    author2: d.author_id_2,
-    date: d.published_at ?? d.created_at,
-    published_at: d.published_at,
-    first_published_at: d.first_published_at,
-    created_at: d.created_at,
-    updated_at: d.updated_at,
-    scheduled_publish_at: d.scheduled_publish_at,
-    revised_at: d.revised_at,
-    theme: d.theme,
-    sujet: d.sujet,
+    id: c.id,
+    title: decodeEntities(c.title),
+    content: c.content ?? "",
+    citation: c.citation ?? "",
+    status: c.status === "publie" ? "publish" : c.status, // map publié vers vocabulaire WP du front
+    is_modified: isModifiedSincePublish(c),
+    author: c.author_id,
+    author2: c.author_id_2,
+    date: c.published_at ?? c.created_at,
+    published_at: c.published_at,
+    first_published_at: c.first_published_at,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    scheduled_publish_at: c.scheduled_publish_at,
+    revised_at: c.revised_at,
     link: "",
-    slug: d.slug,
-    image: d.cover_image_url ?? "",
+    slug: c.slug,
+    image: c.cover_image_url ?? "",
     image_id: null,
-    seo_title: d.seo_title ?? "",
-    seo_description: d.seo_description ?? "",
-    sort_order: d.sort_order,
-    homepage: d.homepage ?? false,
+    seo_title: c.seo_title ?? "",
+    seo_description: c.seo_description ?? "",
+    homepage: c.homepage ?? false,
   };
 }
 
-// GET : liste des dossiers (filtre optionnel author_id)
+// GET : liste des contributions (filtre optionnel author_id)
 export async function GET(request: Request) {
   const supabase = await createClient();
   const {
@@ -81,11 +79,10 @@ export async function GET(request: Request) {
   const authorId = searchParams.get("author_id");
 
   let query = supabase
-    .from("dossiers")
+    .from("contributions")
     .select(
       SELECT_COLS
     )
-    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
   if (authorId) {
@@ -97,10 +94,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json((data as DossierRow[]).map(toApiShape));
+  return NextResponse.json((data as ContribRow[]).map(toApiShape));
 }
 
-// POST : création
+// POST : création d'une contribution
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -111,15 +108,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  if (!body.title) {
-    return NextResponse.json({ error: "Titre requis" }, { status: 400 });
+
+  if (!body.title || !body.author_id) {
+    return NextResponse.json({ error: "Titre et auteur requis" }, { status: 400 });
   }
 
-  // Deux dossiers au titre identique produiraient le meme slug, donc la meme
+  // Deux opinions au titre identique produiraient le meme slug, donc la meme
   // URL, et le build Astro n'en servirait qu'un. On suffixe au besoin.
   const slug = await uniqueSlug(generateSlug(body.title), async (candidate) => {
     const { data } = await supabase
-      .from("dossiers")
+      .from("contributions")
       .select("id")
       .eq("slug", candidate)
       .maybeSingle();
@@ -129,16 +127,16 @@ export async function POST(request: Request) {
   const insertPayload = {
     slug,
     title: body.title,
-    description: body.content ?? null,
-    author_id: body.author_id ?? null,
+    content: body.content ?? null,
+    citation: body.citation ?? null,
+    author_id: String(body.author_id),
     author_id_2: body.author_id_2 ?? null,
+    dossier_id: body.dossier_id ?? null,
     status: "draft" as const,
-    theme: body.theme || null,
-    sujet: body.sujet || null,
   };
 
   const { data, error } = await supabase
-    .from("dossiers")
+    .from("contributions")
     .insert(insertPayload)
     .select(
       SELECT_COLS
@@ -149,7 +147,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(toApiShape(data as DossierRow));
+  return NextResponse.json(toApiShape(data as ContribRow));
 }
 
 // PUT : mise à jour
@@ -183,27 +181,28 @@ export async function PUT(request: Request) {
       );
     }
     const { data: clash } = await supabase
-      .from("dossiers")
+      .from("contributions")
       .select("id")
       .eq("slug", slug)
       .neq("id", body.id)
       .maybeSingle();
     if (clash) {
       return NextResponse.json(
-        { error: `Le slug « ${slug} » est déjà pris par un autre dossier` },
+        { error: `Le slug « ${slug} » est déjà pris par une autre opinion` },
         { status: 409 }
       );
     }
     updatePayload.slug = slug;
   }
-  if (body.content !== undefined) updatePayload.description = body.content;
+  if (body.content !== undefined) updatePayload.content = body.content;
+  if (body.citation !== undefined) updatePayload.citation = body.citation;
   // Si on remplace la cover, on récupère l'ancienne URL pour la supprimer
   // du Storage après le UPDATE (best-effort, voir lib/storage.ts).
   let previousCoverUrl: string | null = null;
   if (body.cover_image_url !== undefined) {
     updatePayload.cover_image_url = body.cover_image_url;
     const { data: current } = await supabase
-      .from("dossiers")
+      .from("contributions")
       .select("cover_image_url")
       .eq("id", body.id)
       .single();
@@ -214,13 +213,13 @@ export async function PUT(request: Request) {
       previousCoverUrl = current.cover_image_url;
     }
   }
+  if (body.dossier_id !== undefined) updatePayload.dossier_id = body.dossier_id;
   if (body.author_id !== undefined) updatePayload.author_id = body.author_id;
   if (body.author_id_2 !== undefined)
     updatePayload.author_id_2 = body.author_id_2 || null;
-  if (body.sort_order !== undefined) updatePayload.sort_order = body.sort_order;
   if (body.homepage !== undefined) updatePayload.homepage = body.homepage;
   // Champs SEO : on stocke null si l'éditeur vide la case pour activer
-  // le fallback côté site Astro (qui retombe sur title/excerpt si null).
+  // le fallback côté site Astro (qui retombe sur title/citation/excerpt si null).
   if (body.seo_title !== undefined)
     updatePayload.seo_title = body.seo_title || null;
   if (body.seo_description !== undefined)
@@ -229,18 +228,14 @@ export async function PUT(request: Request) {
   // jour : le site n'affiche alors que la date de publication.
   if (body.revised_at !== undefined)
     updatePayload.revised_at = body.revised_at || null;
-  // Classement matriciel : null si l'éditeur remet « Non classé ».
-  if (body.theme !== undefined) updatePayload.theme = body.theme || null;
-  if (body.sujet !== undefined) updatePayload.sujet = body.sujet || null;
   if (body.status !== undefined) {
+    // Map: front peut envoyer 'publish' (vocab WP) → on stocke 'publie'
     const s = body.status === "publish" ? "publie" : body.status;
     updatePayload.status = s;
     if (s === "publie") {
       updatePayload.published_at = new Date().toISOString();
-      // Sortir du status "programme" → on efface la date programmée
       updatePayload.scheduled_publish_at = null;
     } else if (s === "programme") {
-      // Programmation : il faut une date dans le futur
       if (!body.scheduled_publish_at) {
         return NextResponse.json(
           { error: "scheduled_publish_at requis pour programmer" },
@@ -249,12 +244,9 @@ export async function PUT(request: Request) {
       }
       updatePayload.scheduled_publish_at = body.scheduled_publish_at;
     } else if (s === "draft") {
-      // Repassage en brouillon → on efface la date programmée
       updatePayload.scheduled_publish_at = null;
     }
   } else if (body.scheduled_publish_at !== undefined) {
-    // Modification de la date programmée sans changement de status
-    // (ex. l'éditeur ajuste l'heure d'un post déjà en status=programme)
     updatePayload.scheduled_publish_at = body.scheduled_publish_at || null;
   }
 
@@ -263,7 +255,7 @@ export async function PUT(request: Request) {
   }
 
   const { error } = await supabase
-    .from("dossiers")
+    .from("contributions")
     .update(updatePayload)
     .eq("id", body.id);
 
@@ -276,7 +268,7 @@ export async function PUT(request: Request) {
   }
 
   // Rebuild Astro déclenché manuellement via le bouton "Mettre à jour le site"
-  // (route /api/wordpress/deploy), pour permettre de batcher plusieurs publications.
+  // (route /api/content/deploy), pour permettre de batcher plusieurs publications.
 
   return NextResponse.json({ success: true });
 }
@@ -297,7 +289,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "ID requis" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("dossiers").delete().eq("id", id);
+  const { error } = await supabase.from("contributions").delete().eq("id", id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

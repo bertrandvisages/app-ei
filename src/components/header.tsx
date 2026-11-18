@@ -28,7 +28,7 @@ export function Header({ profile }: { profile: Profile }) {
 
   const refreshPending = useCallback(async () => {
     try {
-      const res = await fetch("/api/wordpress/deploy", { cache: "no-store" });
+      const res = await fetch("/api/content/deploy", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       setPendingCount(typeof data.pending_count === "number" ? data.pending_count : 0);
@@ -50,7 +50,7 @@ export function Header({ profile }: { profile: Profile }) {
   const handleDeploy = async () => {
     setDeploying(true);
     try {
-      const res = await fetch("/api/wordpress/deploy", { method: "POST" });
+      const res = await fetch("/api/content/deploy", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Erreur");
       toast.success("Mise à jour du site lancée (≈ 1 min)");

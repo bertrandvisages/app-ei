@@ -23,4 +23,4 @@ CREATE POLICY "Authenticated can read site_meta" ON public.site_meta
   FOR SELECT TO authenticated USING (true);
 
 -- Pas de policy d'UPDATE : les écritures passent par service_role
--- (route /api/wordpress/deploy)
+-- (route /api/content/deploy)

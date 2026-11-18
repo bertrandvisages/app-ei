@@ -190,8 +190,8 @@ export default function ContributionsPage() {
         setIsAdmin((profile as { role?: string } | null)?.role === "admin");
       }
       const [authorsRes, contribRes] = await Promise.all([
-        fetch("/api/wordpress/authors"),
-        fetch("/api/wordpress/contributions"),
+        fetch("/api/content/authors"),
+        fetch("/api/content/contributions"),
       ]);
       if (authorsRes.ok) setAuthors(await authorsRes.json());
       if (contribRes.ok) setContributions(await contribRes.json());
@@ -265,7 +265,7 @@ export default function ContributionsPage() {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -288,7 +288,7 @@ export default function ContributionsPage() {
       setNewAuthorId2("");
       setNewSeoTitle("");
       setNewSeoDesc("");
-      const res2 = await fetch("/api/wordpress/contributions");
+      const res2 = await fetch("/api/content/contributions");
       if (res2.ok) setContributions(await res2.json());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
@@ -365,7 +365,7 @@ export default function ContributionsPage() {
   };
 
   // Upload depuis le disque : limite 5 MB cote client. L'API
-  // /api/wordpress/upload convertit automatiquement en AVIF via le helper
+  // /api/content/upload convertit automatiquement en AVIF via le helper
   // toAvif (meme pipeline que les PNG Gemini).
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
@@ -401,7 +401,7 @@ export default function ContributionsPage() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "contributions/uploaded");
-      const res = await fetch("/api/wordpress/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/content/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload échoué");
 
@@ -471,7 +471,7 @@ export default function ContributionsPage() {
       // declencherait une requete de collision pour rien.
       const slugChanged = editSlug !== (currentContrib?.slug || "");
 
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -621,7 +621,7 @@ export default function ContributionsPage() {
       prev.map((c) => (c.id === contrib.id ? { ...c, homepage: next } : c))
     );
     try {
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: contrib.id, homepage: next }),
@@ -642,7 +642,7 @@ export default function ContributionsPage() {
   const handlePublish = async (id: string) => {
     setPublishing(id);
     try {
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: "publish" }),
@@ -681,7 +681,7 @@ export default function ContributionsPage() {
     }
     setScheduling(editingId);
     try {
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -710,7 +710,7 @@ export default function ContributionsPage() {
   const handleCancelSchedule = async (id: string) => {
     setScheduling(id);
     try {
-      const res = await fetch("/api/wordpress/contributions", {
+      const res = await fetch("/api/content/contributions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: "draft" }),
@@ -732,7 +732,7 @@ export default function ContributionsPage() {
   const handleDeleteConfirmed = async () => {
     if (!deleteTarget) return;
     const res = await fetch(
-      `/api/wordpress/contributions?id=${encodeURIComponent(deleteTarget.id)}`,
+      `/api/content/contributions?id=${encodeURIComponent(deleteTarget.id)}`,
       { method: "DELETE" }
     );
     const data = await res.json().catch(() => ({}));

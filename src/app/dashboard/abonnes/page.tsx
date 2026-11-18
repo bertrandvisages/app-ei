@@ -305,7 +305,7 @@ export default function AbonnesPage() {
     for (const r of sorted) {
       lines.push(
         [
-          r.source === "wp" ? "WordPress" : "Inscription",
+          r.source === "wp" ? "Ancien site" : "Inscription",
           fmtDate(r.registered_at),
           r.first_name ?? "",
           r.last_name ?? "",

@@ -178,7 +178,7 @@ export function ArticlesTable({
   const handlePublish = async (id: string) => {
     setPublishing(id);
     try {
-      const res = await fetch("/api/wordpress/publish", {
+      const res = await fetch("/api/content/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId: id }),

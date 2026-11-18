@@ -55,7 +55,7 @@ function PhotoUpload({
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/wordpress/upload", {
+      const res = await fetch("/api/content/upload", {
         method: "POST",
         body: formData,
       });
@@ -147,7 +147,7 @@ export default function AuteursPage() {
         setIsAdmin((profile as Profile)?.role === "admin");
       }
 
-      const res = await fetch("/api/wordpress/authors");
+      const res = await fetch("/api/content/authors");
       if (res.ok) setAuthors(await res.json());
       setLoading(false);
     }
@@ -159,7 +159,7 @@ export default function AuteursPage() {
     e.preventDefault();
     setCreating(true);
     try {
-      const res = await fetch("/api/wordpress/authors", {
+      const res = await fetch("/api/content/authors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -176,7 +176,7 @@ export default function AuteursPage() {
       setNewAuthor({ first_name: "", last_name: "", description: "", job_title: "", company: "", company_website: "", linkedin: "", seo_title: "", seo_description: "" });
       setNewImageId(null);
       setNewImageUrl("");
-      const res2 = await fetch("/api/wordpress/authors");
+      const res2 = await fetch("/api/content/authors");
       if (res2.ok) setAuthors(await res2.json());
       window.dispatchEvent(new Event(PENDING_DEPLOY_EVENT));
     } catch (err) {
@@ -200,8 +200,8 @@ export default function AuteursPage() {
       // pour avoir l'état à jour (pas de cache : sinon, après une
       // publication ailleurs, la liste reste périmée).
       const [dossiersRes, opinionsRes] = await Promise.all([
-        fetch(`/api/wordpress/dossiers?author_id=${author.id}`),
-        fetch(`/api/wordpress/contributions?author_id=${author.id}`),
+        fetch(`/api/content/dossiers?author_id=${author.id}`),
+        fetch(`/api/content/contributions?author_id=${author.id}`),
       ]);
       const dossiers: AuthorContentItem[] = dossiersRes.ok ? await dossiersRes.json() : [];
       const opinions: AuthorContentItem[] = opinionsRes.ok ? await opinionsRes.json() : [];
@@ -213,7 +213,7 @@ export default function AuteursPage() {
     if (!editData) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/wordpress/authors", {
+      const res = await fetch("/api/content/authors", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -323,7 +323,7 @@ export default function AuteursPage() {
   const handleDeleteConfirmed = async () => {
     if (!deleteTarget) return;
     const res = await fetch(
-      `/api/wordpress/authors?id=${encodeURIComponent(deleteTarget.id)}`,
+      `/api/content/authors?id=${encodeURIComponent(deleteTarget.id)}`,
       { method: "DELETE" }
     );
     const data = await res.json().catch(() => ({}));

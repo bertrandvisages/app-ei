@@ -25,7 +25,7 @@ Les trois tournent sur le même VPS Hostinger (`178.16.130.176`) orchestré par 
 
 L'éditeur navigue dans le dashboard et :
 1. Crée / édite un dossier ou une opinion (table `dossiers` / `contributions` côté Supabase)
-2. Clic **Publier** ou **Republier** → `PUT /api/wordpress/<entity>` met le status à `publie` et bump `published_at`
+2. Clic **Publier** ou **Republier** → `PUT /api/content/<entity>` met le status à `publie` et bump `published_at`
 3. Le route handler appelle **`triggerLenoncoteRebuild()`** (helper `src/lib/trigger-deploy.ts`) qui POST le webhook Coolify avec `Bearer COOLIFY_API_TOKEN`
 4. Le site `preview.lenoncote.fr` rebuilde (~1 min) et lit les nouvelles données depuis Supabase
 
@@ -42,7 +42,7 @@ Le status badge dans les tables affiche **Modifié** quand `updated_at > publish
 | `/dashboard/abonnes` | `subscribers` ∪ `inscrits` | filtres, tri, suppression admin |
 | `/dashboard/utilisateurs` | `profiles` | admin only, créer/supprimer éditeurs |
 
-⚠️ Les paths d'API gardent encore le préfixe `/api/wordpress/*` pour minimiser les changements lors de la migration WP → Supabase. Le contenu de ces routes n'a plus rien de WordPress, c'est juste l'historique du nommage.
+Les routes de contenu vivent sous `/api/content/*`. Elles s'appelaient `/api/wordpress/*` jusqu'au 18 novembre 2026, nom hérité de la migration d'origine ; si tu croises ce chemin quelque part, il est périmé.
 
 # Tables Supabase consommées
 
@@ -50,7 +50,7 @@ Voir CLAUDE.md de `lenoncote` pour la vue globale. Côté DASH-EI :
 - `profiles` (rôle `admin` ou `editeur`) → gate les pages et boutons
 - `authors`, `dossiers`, `contributions`, `articles` → CRUD éditorial
 - `inscrits` + `subscribers` → vue Abonnés
-- `storage.objects` (bucket `media`) → upload via `/api/wordpress/upload` puis URL stockée dans `image_url` / `cover_image_url`
+- `storage.objects` (bucket `media`) → upload via `/api/content/upload` puis URL stockée dans `image_url` / `cover_image_url`
 
 # Intégrations externes
 
@@ -75,7 +75,7 @@ Bucket `media`, public read. RLS autorise les authentifiés à INSERT/UPDATE/DEL
 - ⚠️ L'appel se fait en **POST** (`trigger-deploy.ts`). Depuis une mise à jour Coolify (~août 2026) l'endpoint `/api/v1/deploy` renvoie **405** en GET (`This endpoint has changed to a POST request.`) → aucun build déclenché, site figé. C'était la vraie cause du site bloqué (le `force` était un leurre). Vérifiable : `curl -i -X POST ".../api/v1/deploy?uuid=...&force=true" -H "Authorization: Bearer $COOLIFY_API_TOKEN"` doit renvoyer 200 + `Deployment queued`.
 - Le token `COOLIFY_API_TOKEN` doit avoir la permission **Deploy** (pas seulement Read).
 - Helper `src/lib/trigger-deploy.ts` (fire-and-forget, logué via console)
-- Appelé depuis `/api/wordpress/publish`, `/api/wordpress/dossiers` PUT (sur status `publie`), `/api/wordpress/contributions` PUT (sur status `publie`)
+- Appelé depuis `/api/content/publish`, `/api/content/dossiers` PUT (sur status `publie`), `/api/content/contributions` PUT (sur status `publie`)
 
 # Build & déploiement
 
@@ -111,12 +111,12 @@ Si tu ajoutes une env var et un simple Restart ne la voit pas, fais un **Redeplo
 
 | Route | Méthode | Auth | Rôle |
 |---|---|---|---|
-| `/api/wordpress/authors` | GET/POST/PUT/DELETE | authenticated | CRUD auteurs |
-| `/api/wordpress/dossiers` | GET/POST/PUT/DELETE | authenticated | CRUD dossiers, déclenche rebuild |
-| `/api/wordpress/contributions` | GET/POST/PUT/DELETE | authenticated | CRUD opinions, déclenche rebuild |
-| `/api/wordpress/publish` | POST | authenticated | flip article à `publie` + rebuild |
-| `/api/wordpress/delete` | POST | authenticated | no-op (suppression côté page) |
-| `/api/wordpress/upload` | POST | authenticated | upload Supabase Storage |
+| `/api/content/authors` | GET/POST/PUT/DELETE | authenticated | CRUD auteurs |
+| `/api/content/dossiers` | GET/POST/PUT/DELETE | authenticated | CRUD dossiers, déclenche rebuild |
+| `/api/content/contributions` | GET/POST/PUT/DELETE | authenticated | CRUD opinions, déclenche rebuild |
+| `/api/content/publish` | POST | authenticated | flip article à `publie` + rebuild |
+| `/api/content/delete` | POST | authenticated | no-op (suppression côté page) |
+| `/api/content/upload` | POST | authenticated | upload Supabase Storage |
 | `/api/generate-image` | POST | authenticated | Gemini 3 Pro Image |
 | `/api/generate-citation` | POST | authenticated | Gemini 2.5 Flash |
 | `/api/generate-classification` | POST | authenticated | Gemini 2.5 Flash → suggère `theme`+`sujet` (contraint aux listes de `src/lib/taxonomy.ts`) |

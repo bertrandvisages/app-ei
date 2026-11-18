@@ -86,7 +86,7 @@ export function ArticleEditor({
   const handlePublishToWordPress = async () => {
     setPublishing(true);
     try {
-      const res = await fetch("/api/wordpress/publish", {
+      const res = await fetch("/api/content/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ articleId: article.id }),

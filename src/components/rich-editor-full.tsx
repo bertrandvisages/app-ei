@@ -209,7 +209,7 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
   };
 
   // Upload image dans le body : meme pipeline que les covers
-  // (/api/wordpress/upload → toAvif → Supabase Storage). On insere l'image
+  // (/api/content/upload → toAvif → Supabase Storage). On insere l'image
   // au curseur via Tiptap.setImage.
   // (imageInputRef + uploadingImage declares plus haut pour respecter
   // l'ordre des hooks)
@@ -242,7 +242,7 @@ export function RichEditorFull({ content, onChange }: RichEditorFullProps) {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("folder", "body/inline");
-      const res = await fetch("/api/wordpress/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/content/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload échoué");
 

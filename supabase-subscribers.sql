@@ -1,4 +1,4 @@
--- Table des abonnés WordPress
+-- Table des abonnés de l'ancien site (archive figée)
 CREATE TABLE public.subscribers (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   wp_user_id INTEGER UNIQUE NOT NULL,
