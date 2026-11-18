@@ -60,6 +60,7 @@ function toApiShape(d: DossierRow) {
     slug: d.slug,
     image: d.cover_image_url ?? "",
     image_id: null,
+    excerpt: d.excerpt ?? "",
     seo_title: d.seo_title ?? "",
     seo_description: d.seo_description ?? "",
     sort_order: d.sort_order,
@@ -135,6 +136,12 @@ export async function POST(request: Request) {
     status: "draft" as const,
     theme: body.theme || null,
     sujet: body.sujet || null,
+    excerpt: body.excerpt || null,
+    // Le formulaire de creation envoyait deja ces deux champs, mais ils
+    // n'etaient pas repris ici : le SEO saisi a la creation etait perdu en
+    // silence, et il fallait rouvrir le dossier pour le ressaisir.
+    seo_title: body.seo_title || null,
+    seo_description: body.seo_description || null,
   };
 
   const { data, error } = await supabase
@@ -225,6 +232,10 @@ export async function PUT(request: Request) {
     updatePayload.seo_title = body.seo_title || null;
   if (body.seo_description !== undefined)
     updatePayload.seo_description = body.seo_description || null;
+  // Extrait affiche sur les cartes du site. Vide = null, et le site retombe
+  // sur le debut du corps du dossier (cf. getExcerpt dans lenoncote).
+  if (body.excerpt !== undefined)
+    updatePayload.excerpt = body.excerpt || null;
   // Date de mise a jour editoriale, saisie a la main. null = jamais mise a
   // jour : le site n'affiche alors que la date de publication.
   if (body.revised_at !== undefined)

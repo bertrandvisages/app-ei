@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -54,6 +55,9 @@ interface Contribution {
   image_id: number | null;
   seo_title: string;
   seo_description: string;
+  // Extrait choisi a la main pour la carte du site. "" = le site derive le
+  // resume du debut du corps.
+  excerpt: string;
 }
 
 interface ImageCandidate {
@@ -100,6 +104,7 @@ export default function DossiersPage() {
   const [editSlug, setEditSlug] = useState("");
   const [editSeoTitle, setEditSeoTitle] = useState("");
   const [editSeoDesc, setEditSeoDesc] = useState("");
+  const [editExcerpt, setEditExcerpt] = useState("");
   const [editTheme, setEditTheme] = useState("");
   const [editSujet, setEditSujet] = useState("");
   // Datetime au format input HTML5 "YYYY-MM-DDTHH:mm" (heure locale).
@@ -186,6 +191,7 @@ export default function DossiersPage() {
   const [newAuthorId2, setNewAuthorId2] = useState<string>("");
   const [newSeoTitle, setNewSeoTitle] = useState("");
   const [newSeoDesc, setNewSeoDesc] = useState("");
+  const [newExcerpt, setNewExcerpt] = useState("");
   const [newTheme, setNewTheme] = useState("");
   const [newSujet, setNewSujet] = useState("");
 
@@ -361,6 +367,7 @@ export default function DossiersPage() {
           author_id_2: newAuthorId2 || null,
           seo_title: newSeoTitle || undefined,
           seo_description: newSeoDesc || undefined,
+          excerpt: newExcerpt || undefined,
           theme: newTheme || null,
           sujet: newSujet || null,
         }),
@@ -376,6 +383,7 @@ export default function DossiersPage() {
       setNewAuthorId2("");
       setNewSeoTitle("");
       setNewSeoDesc("");
+      setNewExcerpt("");
       setNewTheme("");
       setNewSujet("");
       const res2 = await fetch("/api/content/dossiers");
@@ -398,6 +406,7 @@ export default function DossiersPage() {
       setEditSlug(contrib.slug || "");
       setEditSeoTitle(contrib.seo_title || "");
       setEditSeoDesc(contrib.seo_description || "");
+      setEditExcerpt(contrib.excerpt || "");
       setEditTheme(contrib.theme || "");
       setEditSujet(contrib.sujet || "");
       // Datetime picker : convertit ISO UTC → "YYYY-MM-DDTHH:mm" en
@@ -555,6 +564,9 @@ export default function DossiersPage() {
           author_id_2: editAuthorId2 || null,
           seo_title: editSeoTitle || undefined,
           seo_description: editSeoDesc || undefined,
+          // Envoye meme vide : c'est ainsi qu'on efface un extrait pour
+          // revenir au resume automatique.
+          excerpt: editExcerpt,
           revised_at: editRevisedAt || null,
           theme: editTheme || null,
           sujet: editSujet || null,
@@ -580,6 +592,7 @@ export default function DossiersPage() {
               // SEO (vide pour un dossier recent) et il semble avoir disparu.
               seo_title: editSeoTitle,
               seo_description: editSeoDesc,
+              excerpt: editExcerpt,
               revised_at: editRevisedAt || null,
               theme: editTheme || null,
               sujet: editSujet || null,
@@ -961,6 +974,21 @@ export default function DossiersPage() {
                     </select>
                   </div>
                 </div>
+              </div>
+              <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Extrait</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Texte affiché sous le titre sur les cartes du site, 2 à
+                  3 lignes. Peut être renseigné plus tard.
+                </p>
+                <Textarea
+                  value={newExcerpt}
+                  onChange={(e) => setNewExcerpt(e.target.value)}
+                  placeholder="Deux ou trois phrases qui donnent envie de lire le dossier"
+                  rows={3}
+                  maxLength={400}
+                />
+                <p className="text-[10px] text-muted-foreground text-right">{newExcerpt.length}/400</p>
               </div>
               <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Données SEO</p>
@@ -1512,6 +1540,28 @@ export default function DossiersPage() {
                               content={editContent}
                               onChange={setEditContent}
                             />
+                          </div>
+                          <div className="rounded-md border p-4 space-y-3 bg-muted/30">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Extrait
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Texte affiché sous le titre sur les cartes du
+                              site, 2 à 3 lignes. Laissé vide, le site reprend
+                              le début du dossier, ce qui donne un résultat
+                              bancal quand l'article commence par un titre ou
+                              un tableau.
+                            </p>
+                            <Textarea
+                              value={editExcerpt}
+                              onChange={(e) => setEditExcerpt(e.target.value)}
+                              placeholder="Deux ou trois phrases qui donnent envie de lire le dossier"
+                              rows={3}
+                              maxLength={400}
+                            />
+                            <p className="text-[10px] text-muted-foreground text-right">
+                              {editExcerpt.length}/400
+                            </p>
                           </div>
                           <div className="rounded-md border p-4 space-y-3 bg-muted/30">
                             <div className="flex items-center justify-between gap-3">
