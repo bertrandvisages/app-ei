@@ -6,8 +6,10 @@
 -- Entre les deux, un rebuild du site echouerait sur
 -- « column articles.wordpress_post_id does not exist ».
 --
--- La table est vide en pratique (aucune actualite publiee, le carrousel de la
--- home ne rend rien), donc aucune donnee a risque.
+-- Etat de la table au 25 novembre 2026 : 14 lignes, toutes au statut
+-- « publie », et les 14 portent bien wordpress_post_id ET wordpress_url.
+-- RENAME COLUMN conserve les donnees, il n y a donc rien a perdre, mais la
+-- table n est pas vide : le code doit suivre immediatement.
 
 ALTER TABLE public.articles
   RENAME COLUMN wordpress_post_id TO legacy_post_id;
