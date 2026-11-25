@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// No-op : WordPress n'existe plus.
+// No-op : le CMS d'origine n'existe plus, la suppression se fait côté page.
 // La suppression Supabase est faite directement côté page (cf. /dashboard/publies).
 // Cet endpoint est conservé pour compatibilité avec le code existant qui l'appelle
 // en parallèle d'un DELETE Supabase ; il retourne juste success.

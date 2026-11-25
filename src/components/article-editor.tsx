@@ -83,7 +83,7 @@ export function ArticleEditor({
     }
   };
 
-  const handlePublishToWordPress = async () => {
+  const handlePublish = async () => {
     setPublishing(true);
     try {
       const res = await fetch("/api/content/publish", {
@@ -98,10 +98,8 @@ export function ArticleEditor({
       setArticle({
         ...article,
         status: "publie",
-        wordpress_post_id: data.postId,
-        wordpress_url: data.postUrl,
       });
-      toast.success("Article publié sur WordPress !");
+      toast.success("Article publié");
     } catch (err) {
       toast.error(
         `Erreur: ${err instanceof Error ? err.message : "Publication échouée"}`
@@ -153,10 +151,10 @@ export function ArticleEditor({
           {article.status === "valide" && (
             <Button
               size="sm"
-              onClick={handlePublishToWordPress}
+              onClick={handlePublish}
               disabled={publishing}
             >
-              {publishing ? "Publication..." : "Publier sur WordPress"}
+              {publishing ? "Publication..." : "Publier"}
             </Button>
           )}
         </div>
@@ -264,11 +262,11 @@ export function ArticleEditor({
         </CardContent>
       </Card>
 
-      {/* WordPress info */}
+      {/* Références de l'article sur l'ancien site */}
       {article.wordpress_post_id && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">WordPress</CardTitle>
+            <CardTitle className="text-base">Ancien site</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm">

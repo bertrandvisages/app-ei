@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Décode les entités HTML héritées de l'import WordPress (&rsquo;, &hellip;, etc.)
+// Décode les entités HTML héritées de l'ancien site (&rsquo;, &hellip;, etc.)
 // pour que le titre affiché et édité dans le dashboard soit du texte propre.
 // Le site Astro a le même helper côté lecture, on garde la cohérence.
 export function decodeEntities(s: string | null | undefined): string {

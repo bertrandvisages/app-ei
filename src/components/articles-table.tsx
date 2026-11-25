@@ -186,7 +186,7 @@ export function ArticlesTable({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      toast.success("Publié sur WordPress");
+      toast.success("Publié");
       // Refresh page to get updated server data
       window.location.reload();
     } catch (err) {
@@ -415,7 +415,7 @@ export function ArticlesTable({
                                     onClick={() => handlePublish(editData.id)}
                                     disabled={publishing === editData.id}
                                   >
-                                    {publishing === editData.id ? "Publication..." : "Publier sur WordPress"}
+                                    {publishing === editData.id ? "Publication..." : "Publier"}
                                   </Button>
                                 </>
                               )}
