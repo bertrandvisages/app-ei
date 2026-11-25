@@ -1,3 +1,8 @@
+-- PERIME au 25 novembre 2026 : voir supabase-drop-articles.sql.
+-- La table `articles` va etre supprimee, ce qui emporte les deux colonnes
+-- que ce script voulait renommer. Garde pour memoire au cas ou la
+-- suppression serait abandonnee.
+
 -- Dernieres colonnes au nom herite de l ancien site, sur la table `articles`.
 --
 -- NE PAS EXECUTER SEUL : le site Astro les nomme dans son SELECT
